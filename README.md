@@ -18,7 +18,7 @@ It supports plugins, user configuration, and a friendly installer.
 
 ## Installation
 
-1. **Clone the repository and run the installer:**
+1. **Install**
 
    - Download the install.sh script from the Repo
 
