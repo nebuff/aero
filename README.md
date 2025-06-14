@@ -27,6 +27,7 @@ It supports plugins, user configuration, and a friendly installer.
 
    ```sh
    cd ~/Downloads
+   chmod +x install.sh
    ./install.sh
    ```
 
