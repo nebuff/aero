@@ -26,7 +26,8 @@ It supports plugins, user configuration, and a friendly installer.
    >  then Navigate to the "Download raw file" Tab on the top right
 
    ```sh
-   ./~/Downloads/install.sh
+   cd ~/Downloads
+   ./install.sh
    ```
 
    > **Note:**  
