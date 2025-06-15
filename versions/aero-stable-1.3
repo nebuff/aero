@@ -1,0 +1,519 @@
+#!/usr/bin/env python3
+import os
+import sys
+import shlex
+import importlib.util
+import urllib.request
+import json
+import datetime
+import readline  # <-- Add this import at the top
+
+# ANSI color codes
+COLOR_RESET = "\033[0m"
+COLOR_GREEN = "\033[32m"
+COLOR_YELLOW = "\033[33m"
+COLOR_RED = "\033[31m"
+COLOR_CYAN = "\033[36m"
+
+__AERO_VERSION__ = "aero-stable-1.3"  # Change this string for your version
+
+def cmd_ls(args):
+    path = args[0] if args else '.'
+    try:
+        for entry in os.listdir(path):
+            print(f"{COLOR_CYAN}{entry}{COLOR_RESET}")
+    except Exception as e:
+        print(f"{COLOR_RED}ls: {e}{COLOR_RESET}")
+
+def cmd_cd(args):
+    # Fix: If no args, cd to home directory
+    if not args:
+        try:
+            os.chdir(os.path.expanduser("~"))
+        except Exception as e:
+            print(f"{COLOR_RED}cd: {e}{COLOR_RESET}")
+        return
+    try:
+        os.chdir(args[0])
+    except Exception as e:
+        print(f"{COLOR_RED}cd: {e}{COLOR_RESET}")
+
+def cmd_mkdir(args):
+    if not args:
+        print(f"{COLOR_RED}mkdir: missing operand{COLOR_RESET}")
+        return
+    try:
+        os.makedirs(args[0], exist_ok=True)
+    except Exception as e:
+        print(f"{COLOR_RED}mkdir: {e}{COLOR_RESET}")
+
+def cmd_exit(args):
+    sys.exit(0)
+
+AERO_DIR = os.path.dirname(os.path.abspath(__file__))
+PLUGINS_DIR = os.path.join(AERO_DIR, "plugins")
+REPO_PLUGINS_URL = "https://raw.githubusercontent.com/nebuff/aero/main/plugins"
+CONFIG_PATH = os.path.join(AERO_DIR, "config.json")
+
+# Create plugins directory if it doesn't exist
+os.makedirs(PLUGINS_DIR, exist_ok=True)
+
+# Command registry for easy extension
+COMMANDS = {
+    'ls': cmd_ls,
+    'cd': cmd_cd,
+    'mkdir': cmd_mkdir,
+    'exit': cmd_exit,
+    'quit': cmd_exit,
+}
+
+def installist(args):
+    # List installed plugins (without .py)
+    if not os.path.isdir(PLUGINS_DIR):
+        print("No plugins directory found.")
+        return
+    installed = [f[:-3] for f in os.listdir(PLUGINS_DIR) if f.endswith(".py")]
+    if installed:
+        print(f"{COLOR_YELLOW}Installed plugins:{COLOR_RESET}")
+        for plugin in installed:
+            print(f"- {COLOR_CYAN}{plugin}{COLOR_RESET}")
+    else:
+        print(f"{COLOR_YELLOW}No plugins installed.{COLOR_RESET}")
+
+    # List available plugins from the repo (using GitHub API)
+    try:
+        import ssl
+        import json as _json
+        api_url = "https://api.github.com/repos/nebuff/aero/contents/plugins"
+        context = ssl._create_unverified_context()
+        with urllib.request.urlopen(api_url, context=context) as resp:
+            data = resp.read().decode()
+        files = _json.loads(data)
+        available = set()
+        for f in files:
+            name = f.get("name", "")
+            if name.endswith(".py"):
+                available.add(name[:-3])
+        if available:
+            print(f"\n{COLOR_YELLOW}Avalilble plugins:{COLOR_RESET}")
+            for plugin in sorted(available):
+                mark = f"{COLOR_GREEN}[x]{COLOR_RESET}" if plugin in installed else f"{COLOR_RED}[ ]{COLOR_RESET}"
+                print(f"{mark} {COLOR_CYAN}{plugin}{COLOR_RESET}")
+        else:
+            print(f"\n{COLOR_RED}No available plugins found in repo.{COLOR_RESET}")
+    except Exception as e:
+        print(f"\n{COLOR_RED}Could not fetch available plugins from repo: {e}{COLOR_RESET}")
+
+COMMANDS['installist'] = installist
+
+def install_plugin(args):
+    if not args:
+        print(f"{COLOR_RED}install: missing plugin name{COLOR_RESET}")
+        return
+    plugin_name = args[0]
+    # Remove .py if present
+    if plugin_name.endswith(".py"):
+        plugin_name = plugin_name[:-3]
+    plugin_file = f"{plugin_name}.py"
+    url = f"{REPO_PLUGINS_URL}/{plugin_file}"
+    dest = os.path.join(PLUGINS_DIR, plugin_file)
+    
+    # Create plugins directory if it doesn't exist
+    os.makedirs(PLUGINS_DIR, exist_ok=True)
+    
+    try:
+        import ssl
+        context = ssl._create_unverified_context()
+        print(f"Downloading plugin from {url} ...")
+        with urllib.request.urlopen(url, context=context) as response, open(dest, "wb") as out_file:
+            out_file.write(response.read())
+        print(f"{COLOR_GREEN}Installed plugin '{plugin_name}'. Restart Aero to load it.{COLOR_RESET}")
+    except Exception as e:
+        print(f"{COLOR_RED}Failed to install plugin: {e}{COLOR_RESET}")
+
+COMMANDS['install'] = install_plugin
+
+def installdelete(args):
+    if not args:
+        print(f"{COLOR_RED}installdelete: missing plugin name{COLOR_RESET}")
+        return
+    plugin_name = args[0]
+    # Remove .py if present
+    if plugin_name.endswith(".py"):
+        plugin_name = plugin_name[:-3]
+    plugin_file = f"{plugin_name}.py"
+    plugin_path = os.path.join(PLUGINS_DIR, plugin_file)
+    if os.path.isfile(plugin_path):
+        try:
+            os.remove(plugin_path)
+            print(f"{COLOR_GREEN}Deleted plugin '{plugin_name}'. Restart Aero to unload it.{COLOR_RESET}")
+        except Exception as e:
+            print(f"{COLOR_RED}Failed to delete plugin: {e}{COLOR_RESET}")
+    else:
+        print(f"{COLOR_RED}Plugin '{plugin_name}' is not installed.{COLOR_RESET}")
+
+COMMANDS['installdelete'] = installdelete
+
+def load_config():
+    if not os.path.isfile(CONFIG_PATH):
+        # Default config
+        return {
+            "color": True,
+            "username": "Aero-User",
+            "time_format": "24",
+            "colors": {
+                "prompt": "\033[32m",
+                "info": "\033[33m",
+                "error": "\033[31m",
+                "plugin": "\033[36m",
+                "reset": "\033[0m"
+            }
+        }
+    try:
+        with open(CONFIG_PATH, "r") as f:
+            config = json.load(f)
+        # Fill missing defaults
+        if "color" not in config:
+            config["color"] = True
+        if "username" not in config:
+            config["username"] = "Aero-User"
+        if "time_format" not in config:
+            config["time_format"] = "24"
+        if "colors" not in config:
+            config["colors"] = {
+                "prompt": "\033[32m",
+                "info": "\033[33m",
+                "error": "\033[31m",
+                "plugin": "\033[36m",
+                "reset": "\033[0m"
+            }
+        return config
+    except Exception:
+        return {
+            "color": True,
+            "username": "Aero-User",
+            "time_format": "24",
+            "colors": {
+                "prompt": "\033[32m",
+                "info": "\033[33m",
+                "error": "\033[31m",
+                "plugin": "\033[36m",
+                "reset": "\033[0m"
+            }
+        }
+
+def save_config(config):
+    try:
+        with open(CONFIG_PATH, "w") as f:
+            json.dump(config, f, indent=2)
+    except Exception as e:
+        print(f"Failed to save config: {e}")
+
+config = load_config()
+
+# Use config for colors
+def get_color(key):
+    if config.get("color", True):
+        return config.get("colors", {}).get(key, "")
+    return ""
+
+COLOR_RESET = get_color("reset")
+COLOR_GREEN = get_color("prompt")
+COLOR_YELLOW = get_color("info")
+COLOR_RED = get_color("error")
+COLOR_CYAN = get_color("plugin")
+
+def update_colors_from_config():
+    global COLOR_RESET, COLOR_GREEN, COLOR_YELLOW, COLOR_RED, COLOR_CYAN
+    COLOR_RESET = get_color("reset")
+    COLOR_GREEN = get_color("prompt")
+    COLOR_YELLOW = get_color("info")
+    COLOR_RED = get_color("error")
+    COLOR_CYAN = get_color("plugin")
+
+def cmd_pwd(args):
+    print(f"{COLOR_CYAN}{os.getcwd()}{COLOR_RESET}")
+
+def cmd_sfc(args):
+    if not args:
+        print(f"{COLOR_RED}sfc: missing filename{COLOR_RESET}")
+        return
+    try:
+        with open(args[0], "r") as f:
+            print(f"{COLOR_CYAN}{f.read()}{COLOR_RESET}")
+    except Exception as e:
+        print(f"{COLOR_RED}sfc: {e}{COLOR_RESET}")
+
+def cmd_cef(args):
+    if not args:
+        print(f"{COLOR_RED}cef: missing filename{COLOR_RESET}")
+        return
+    try:
+        with open(args[0], "a"):
+            os.utime(args[0], None)
+        print(f"{COLOR_GREEN}Created or updated {args[0]}{COLOR_RESET}")
+    except Exception as e:
+        print(f"{COLOR_RED}cef: {e}{COLOR_RESET}")
+
+def cmd_clear(args):
+    os.system('clear')
+
+def config_command(args):
+    # Show current config and options
+    print(f"{COLOR_YELLOW}Aero Configuration:{COLOR_RESET}")
+    print(f"  username: {config.get('username', 'Aero-User')}")
+    print(f"  color: {'on' if config.get('color', True) else 'off'}")
+    print(f"  time_format: {config.get('time_format', '24')} (set to '12' or '24')")
+    print(f"  colors:")
+    for k, v in config.get("colors", {}).items():
+        print(f"    {k}: {v}")
+    print()
+    print("Available config commands:")
+    print("  config username <name>         - Set your Aero username")
+    print("  config color on|off            - Enable or disable color")
+    print("  config color <type> <code>     - Set ANSI color code for type (prompt, info, error, plugin, reset)")
+    print("  config time_format 12|24       - Set 12-hour or 24-hour time format")
+    print("  config reset                    - Reset all config to default")
+    print("  config show                    - Show current config")
+    print()
+    if not args:
+        return
+    if args[0] == "username" and len(args) > 1:
+        config["username"] = " ".join(args[1:])
+        save_config(config)
+        print(f"{COLOR_GREEN}Username set to {config['username']}{COLOR_RESET}")
+    elif args[0] == "color":
+        if len(args) == 2 and args[1] in ("on", "off"):
+            config["color"] = (args[1] == "on")
+            save_config(config)
+            update_colors_from_config()
+            print(f"{COLOR_GREEN}Color {'enabled' if config['color'] else 'disabled'}{COLOR_RESET}")
+        elif len(args) == 3 and args[1] in ("prompt", "info", "error", "plugin", "reset"):
+            config.setdefault("colors", {})[args[1]] = args[2]
+            save_config(config)
+            update_colors_from_config()
+            print(f"{COLOR_GREEN}Color for {args[1]} set to {args[2]}{COLOR_RESET}")
+        else:
+            print(f"{COLOR_RED}Usage: config color on|off OR config color <type> <code>{COLOR_RESET}")
+    elif args[0] == "time_format" and len(args) > 1:
+        if args[1] in ("12", "24"):
+            config["time_format"] = args[1]
+            save_config(config)
+            print(f"{COLOR_GREEN}Time format set to {args[1]}-hour{COLOR_RESET}")
+        else:
+            print(f"{COLOR_RED}Usage: config time_format 12|24{COLOR_RESET}")
+    elif args[0] == "reset":
+        # Reset config to default
+        default = {
+            "color": True,
+            "username": "Aero-User",
+            "time_format": "24",
+            "colors": {
+                "prompt": "\033[32m",
+                "info": "\033[33m",
+                "error": "\033[31m",
+                "plugin": "\033[36m",
+                "reset": "\033[0m"
+            }
+        }
+        config.clear()
+        config.update(default)
+        save_config(config)
+        update_colors_from_config()
+        print(f"{COLOR_GREEN}Config reset to default.{COLOR_RESET}")
+    elif args[0] == "show":
+        print(json.dumps(config, indent=2))
+    else:
+        print(f"{COLOR_RED}Unknown config command or missing arguments.{COLOR_RESET}")
+
+COMMANDS['config'] = config_command
+COMMANDS['clear'] = cmd_clear
+COMMANDS['pwd'] = cmd_pwd
+COMMANDS['sfc'] = cmd_sfc
+COMMANDS['cef'] = cmd_cef
+
+def cmd_time(args):
+    time_fmt = config.get("time_format", "24")
+    if not args:
+        # Show local system time
+        now = datetime.datetime.now()
+        if time_fmt == "12":
+            timestr = now.strftime('%Y-%m-%d %I:%M:%S %p')
+        else:
+            timestr = now.strftime('%Y-%m-%d %H:%M:%S')
+        print(f"{COLOR_CYAN}Local Time: {timestr}{COLOR_RESET}")
+        return
+    # Show time for another place using worldtimeapi.org
+    place = "_".join(args).lower()
+    import ssl
+    import json as _json
+    try:
+        context = ssl._create_unverified_context()
+        url = f"https://worldtimeapi.org/api/timezone"
+        with urllib.request.urlopen(url, context=context) as resp:
+            zones = _json.loads(resp.read().decode())
+        match = None
+        for z in zones:
+            if place in z.lower():
+                match = z
+                break
+        if not match:
+            print(f"{COLOR_RED}Could not find timezone for '{' '.join(args)}'.{COLOR_RESET}")
+            return
+        url = f"https://worldtimeapi.org/api/timezone/{match}"
+        with urllib.request.urlopen(url, context=context) as resp:
+            data = _json.loads(resp.read().decode())
+        dt = data.get("datetime", "")
+        if dt:
+            dt = dt.replace("T", " ").split(".")[0]
+            # dt is in UTC or local time, format accordingly
+            dt_obj = datetime.datetime.strptime(dt, "%Y-%m-%d %H:%M:%S")
+            if time_fmt == "12":
+                timestr = dt_obj.strftime('%Y-%m-%d %I:%M:%S %p')
+            else:
+                timestr = dt_obj.strftime('%Y-%m-%d %H:%M:%S')
+            print(f"{COLOR_CYAN}Time in {match}: {timestr}{COLOR_RESET}")
+        else:
+            print(f"{COLOR_RED}Could not get time for {match}.{COLOR_RESET}")
+    except Exception as e:
+        print(f"{COLOR_RED}time: {e}{COLOR_RESET}")
+
+COMMANDS['time'] = cmd_time
+
+def cmd_help(args):
+    print(f"{COLOR_YELLOW}Aero Help - Available Commands:{COLOR_RESET}")
+    print(f"{COLOR_CYAN}ls{COLOR_RESET}                - List files in the current directory")
+    print(f"{COLOR_CYAN}cd [dir]{COLOR_RESET}          - Change directory")
+    print(f"{COLOR_CYAN}mkdir <dir>{COLOR_RESET}       - Make a new directory")
+    print(f"{COLOR_CYAN}pwd{COLOR_RESET}               - Print working directory")
+    print(f"{COLOR_CYAN}sfc <file>{COLOR_RESET}        - Show file contents")
+    print(f"{COLOR_CYAN}cef <file>{COLOR_RESET}        - Create empty file")
+    print(f"{COLOR_CYAN}clear{COLOR_RESET}             - Clear the terminal")
+    print(f"{COLOR_CYAN}installist{COLOR_RESET}        - List installed and available plugins")
+    print(f"{COLOR_CYAN}install <name>{COLOR_RESET}    - Install a plugin by name")
+    print(f"{COLOR_CYAN}installdelete <name>{COLOR_RESET} - Delete an installed plugin")
+    print(f"{COLOR_CYAN}config{COLOR_RESET}            - Show and change configuration")
+    print(f"{COLOR_CYAN}exit{COLOR_RESET}, {COLOR_CYAN}quit{COLOR_RESET}      - Exit Aero")
+    print(f"{COLOR_CYAN}help{COLOR_RESET}              - Show this help message")
+    print(f"{COLOR_CYAN}time{COLOR_RESET}               - Show local system time")
+    print(f"{COLOR_CYAN}time <place>{COLOR_RESET}       - Show time in another place (city/region)")
+    print(f"{COLOR_CYAN}mkex <file>{COLOR_RESET}        - Make a file executable (chmod +x)")
+    print()
+    print(f"{COLOR_YELLOW}Tip:{COLOR_RESET} Use 'config' for color, username, and more settings.")
+
+COMMANDS['help'] = cmd_help
+
+def cmd_ver(args):
+    print(f"{COLOR_CYAN}Aero Version: {__AERO_VERSION__}{COLOR_RESET}")
+    print(f"{COLOR_YELLOW}Plugin Versions:{COLOR_RESET}")
+    for fname in os.listdir(PLUGINS_DIR):
+        if fname.endswith(".py"):
+            fpath = os.path.join(PLUGINS_DIR, fname)
+            version = "unknown"
+            try:
+                with open(fpath, "r") as f:
+                    for line in f:
+                        if "__PLUGIN_VERSION__" in line:
+                            version = line.split("=")[1].strip().strip('"\'')
+                            break
+            except Exception:
+                pass
+            print(f"  {COLOR_CYAN}{fname[:-3]}{COLOR_RESET}: {COLOR_GREEN}{version}{COLOR_RESET}")
+
+COMMANDS['ver'] = cmd_ver
+
+def load_plugins():
+    if not os.path.isdir(PLUGINS_DIR):
+        return
+    loaded = 0
+    for fname in os.listdir(PLUGINS_DIR):
+        if fname.endswith(".py"):
+            fpath = os.path.join(PLUGINS_DIR, fname)
+            try:
+                spec = importlib.util.spec_from_file_location(fname[:-3], fpath)
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                if hasattr(mod, "register"):
+                    mod.register(COMMANDS)
+                loaded += 1
+            except Exception:
+                pass
+    print(f"{COLOR_GREEN}Loaded {loaded} Plugins{COLOR_RESET}")
+
+def main():
+    os.system('clear')
+    update_colors_from_config()
+    print(f"{COLOR_GREEN}Aero Mac <-> by, Holden{COLOR_RESET}")
+    print(f"{COLOR_CYAN}Version: {__AERO_VERSION__}{COLOR_RESET}")
+    print(f"{COLOR_CYAN}Welcome, {config.get('username', 'Aero-User')}{COLOR_RESET}\n")
+    computer_name = os.uname().nodename
+
+    # Enable arrow key history navigation (readline handles this automatically)
+    histfile = os.path.join(AERO_DIR, ".aero_history")
+    try:
+        readline.read_history_file(histfile)
+    except FileNotFoundError:
+        pass
+
+    # Load plugins at startup
+    load_plugins()
+
+    # Re-register built-in commands after plugins to ensure they are present
+    COMMANDS['ls'] = cmd_ls
+    COMMANDS['cd'] = cmd_cd
+    COMMANDS['mkdir'] = cmd_mkdir
+    COMMANDS['exit'] = cmd_exit
+    COMMANDS['quit'] = cmd_exit
+    COMMANDS['install'] = install_plugin
+    COMMANDS['installist'] = installist
+    COMMANDS['installdelete'] = installdelete
+    COMMANDS['config'] = config_command
+    COMMANDS['clear'] = cmd_clear
+    COMMANDS['pwd'] = cmd_pwd
+    COMMANDS['sfc'] = cmd_sfc
+    COMMANDS['cef'] = cmd_cef
+    COMMANDS['help'] = cmd_help
+    COMMANDS['ver'] = cmd_ver
+
+    ctrl_c_count = 0
+    while True:
+        try:
+            inp = input(f"{COLOR_GREEN}Aero@{computer_name} > {COLOR_RESET}")
+            readline.write_history_file(histfile)
+            ctrl_c_count = 0  # Reset on successful input
+            if not inp.strip():
+                continue
+            parts = shlex.split(inp)
+            cmd, *args = parts
+            if cmd in COMMANDS:
+                COMMANDS[cmd](args)
+            else:
+                print(f"{COLOR_RED}Unknown command: {cmd}{COLOR_RESET}")
+        except KeyboardInterrupt:
+            if ctrl_c_count == 0:
+                print(f"\n{COLOR_YELLOW}(Press Ctrl+C again to exit Aero){COLOR_RESET}")
+                ctrl_c_count = 1
+                continue
+            else:
+                print(f"\n{COLOR_GREEN}Aero@{computer_name} > {COLOR_RESET}")
+                confirm = ""
+                try:
+                    confirm = input(f"{COLOR_YELLOW}Are you sure you want to exit? (y/n): {COLOR_RESET}").strip().lower()
+                except KeyboardInterrupt:
+                    print(f"\n{COLOR_YELLOW}Exit cancelled.{COLOR_RESET}")
+                    ctrl_c_count = 0
+                    continue
+                if confirm == "y":
+                    print()
+                    break
+                else:
+                    print(f"{COLOR_YELLOW}Exit cancelled.{COLOR_RESET}")
+                    ctrl_c_count = 0
+                    continue
+        except EOFError:
+            print()
+            break
+    print(f'{COLOR_YELLOW}To Run Aero Again type "aero" in terminal{COLOR_RESET}')
+
+if __name__ == "__main__":
+    main()
