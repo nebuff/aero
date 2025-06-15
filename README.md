@@ -48,6 +48,16 @@ It supports plugins, user configuration, and a friendly installer.
      ```sh
      aero
      ```
+---
+
+## Using TUI
+
+  >**Warning**
+  >Doing this could ruin your shell, Proceed with caution
+
+   - Normaly Install Exept install TUI Version only
+   - Make sure you have the Latest Python Version
+   - Install... Just figure it out
 
 ---
 
