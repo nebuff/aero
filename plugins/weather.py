@@ -1,4 +1,4 @@
-__PLUGIN_VERSION__ = "1.1.0"
+__PLUGIN_VERSION__ = "1.2.0"
 
 import urllib.request
 import ssl
