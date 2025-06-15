@@ -1,3 +1,6 @@
+__PLUGIN_VERSION__ = "1.0.9"
+
+
 import os
 
 def nano_cmd(args):
