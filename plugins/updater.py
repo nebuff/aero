@@ -5,7 +5,7 @@ import urllib.request
 import importlib.util
 import re
 
-__PLUGIN_VERSION__ = "1.0.0"
+__PLUGIN_VERSION__ = "1.2.1"
 
 AERO_REPO_URL = "https://github.com/nebuff/aero.git"
 AERO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -75,6 +75,30 @@ def update_core(selected_version):
     shutil.rmtree(tmpdir)
     return True, f"Updated Aero core to {selected_version}"
 
+def get_remote_plugin_version(plugin_name):
+    import ssl
+    url = f"{REPO_PLUGINS_URL}/{plugin_name}.py"
+    try:
+        context = ssl._create_unverified_context()
+        with urllib.request.urlopen(url, context=context) as resp:
+            for line in resp:
+                line = line.decode("utf-8")
+                if "__PLUGIN_VERSION__" in line:
+                    return line.split("=")[1].strip().strip('"\'')
+    except Exception:
+        pass
+    return None
+
+def get_local_plugin_version(filepath):
+    try:
+        with open(filepath, "r") as f:
+            for line in f:
+                if "__PLUGIN_VERSION__" in line:
+                    return line.split("=")[1].strip().strip('"\'')
+    except Exception:
+        pass
+    return None
+
 def update_plugins():
     import ssl
     import json as _json
@@ -91,10 +115,14 @@ def update_plugins():
                 plugin_name = name[:-3]
                 local_path = os.path.join(PLUGINS_DIR, name)
                 url = f"{REPO_PLUGINS_URL}/{name}"
+                remote_ver = get_remote_plugin_version(plugin_name)
+                local_ver = get_local_plugin_version(local_path) if os.path.isfile(local_path) else None
+                # Update if plugin exists locally and remote version is newer or different
                 if os.path.isfile(local_path):
-                    with urllib.request.urlopen(url, context=context) as response, open(local_path, "wb") as out_file:
-                        out_file.write(response.read())
-                    updated.append(plugin_name)
+                    if remote_ver is not None and local_ver != remote_ver:
+                        with urllib.request.urlopen(url, context=context) as response, open(local_path, "wb") as out_file:
+                            out_file.write(response.read())
+                        updated.append(f"{plugin_name} ({local_ver} → {remote_ver})")
     except Exception as e:
         return False, f"Plugin update failed: {e}"
     return True, updated
@@ -120,7 +148,18 @@ def updater_command(args):
     filtered.sort()
     if not filtered:
         print(f"\033[32mNo newer {cur_type} versions available. You are up to date!\033[0m")
-        return
+        # Still update plugins even if core is up to date
+        print("Checking for plugin updates...")
+        ok, updated = update_plugins()
+        if ok:
+            if updated:
+                print(f"\033[32mUpdated plugins: {', '.join(updated)}\033[0m")
+            else:
+                print("\033[33mNo plugins needed updating.\033[0m")
+        else:
+            print(f"\033[31m{updated}\033[0m")
+        print("\n\033[32mUpdate Complete, Reopen Aero!\033[0m")
+        sys.exit(0)
 
     print(f"Available newer {cur_type} versions:")
     for i, (nums, v) in enumerate(filtered, 1):
