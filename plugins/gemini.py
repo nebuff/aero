@@ -1,4 +1,4 @@
-__PLUGIN_VERSION__ = "1.0.0"
+__PLUGIN_VERSION__ = "1.0.1"
 
 import json
 import os
@@ -16,7 +16,7 @@ COLOR_CYAN = "\033[36m"
 COLOR_BLUE = "\033[34m"
 
 # Gemini API configuration
-DEFAULT_MODEL = "gemma-3-4B"
+DEFAULT_MODEL = "gemma-3n-e4b-it"
 AVAILABLE_MODELS = [
     "gemma-3n-e4b-it",
     "gemma-3-1b-it",
