@@ -3,6 +3,8 @@
 Aero is a simple, extensible, and colorful command shell for macOS and Linux, written in Python.  
 It supports plugins, user configuration, and a friendly installer.
 
+https://github.com/nebuff/aero/releases/download/Installer/install.sh
+
 ---
 
 ## Features
