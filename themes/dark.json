@@ -1,0 +1,49 @@
+{
+  "name": "Dark Professional",
+  "description": "A sleek dark theme with purple accents for professional use",
+  "author": "Aero Team",
+  "version": "1.0.0",
+  "colors": {
+    // Core system colors - these control basic Aero functionality
+    "prompt": "\u001b[35m",
+    "info": "\u001b[96m",
+    "error": "\u001b[91m",
+    "success": "\u001b[92m",
+    "warning": "\u001b[93m",
+    "reset": "\u001b[0m",
+    
+    // Plugin-specific colors - these control plugin output appearance
+    "plugin": "\u001b[95m",
+    "plugin_output": "\u001b[97m",
+    "plugin_error": "\u001b[91m",
+    "plugin_success": "\u001b[92m",
+    
+    // UI element colors - these control interface elements
+    "header": "\u001b[1;95m",
+    "subheader": "\u001b[1;96m",
+    "border": "\u001b[90m",
+    "highlight": "\u001b[1;97m",
+    "dim": "\u001b[2;37m",
+    
+    // Data display colors - these control how data is presented
+    "data_primary": "\u001b[96m",
+    "data_secondary": "\u001b[95m",
+    "data_value": "\u001b[97m",
+    "data_key": "\u001b[93m",
+    
+    // Status colors - these show different states and conditions
+    "status_online": "\u001b[92m",
+    "status_offline": "\u001b[91m",
+    "status_pending": "\u001b[93m",
+    "status_unknown": "\u001b[90m",
+    
+    // Special formatting - these add text effects
+    "bold": "\u001b[1m",
+    "italic": "\u001b[3m",
+    "underline": "\u001b[4m",
+    "strikethrough": "\u001b[9m",
+    "highlight_format": "\u001b[7m"
+  },
+  "prompt_template": "<magenta,bold>{username}</magenta,bold>@<cyan>{hostname}</cyan> <yellow>{short_pwd}</yellow> <magenta>❯</magenta> ",
+  "username": "Dark-User"
+}
