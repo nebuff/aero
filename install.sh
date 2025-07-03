@@ -66,8 +66,13 @@ fi
 
 # Ensure the binary is executable
 chmod +x aero
-sudo cp aero /usr/local/bin/
-sudo chmod +x /usr/local/bin/aero
+# If /usr/local/bin/aero is running, move to temp then overwrite
+if [ -f /usr/local/bin/aero ]; then
+    mv /usr/local/bin/aero /usr/local/bin/aero.old 2>/dev/null || true
+fi
+cp aero /usr/local/bin/
+chmod +x /usr/local/bin/aero
+rm -f /usr/local/bin/aero.old 2>/dev/null || true
 
 # Copy app-list.txt to a shared location, or create a default one if missing
 sudo mkdir -p /usr/local/share/aero
