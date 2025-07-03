@@ -214,10 +214,10 @@ void draw_menu(int highlight, bool in_settings) {
                 attroff(COLOR_PAIR(1));
             }
         }
-        mvprintw(8, 4, "(Toggle and save to ~/.config/aero/app-list.txt)");
+        mvprintw(8, 4, "(Toggle and save to app-list.txt)");
         mvprintw(10, 2, "App Color: fg=%s bg=%s", aero_settings.app_fg, aero_settings.app_bg);
         mvprintw(11, 2, "Selected Color: fg=%s bg=%s", aero_settings.sel_fg, aero_settings.sel_bg);
-        mvprintw(12, 2, "Edit ~/.config/aero/app-list.txt to change apps/colors.");
+        mvprintw(12, 2, "Edit app-list.txt to change colors.");
     } else {
         mvprintw(0, 2, "Aero App Center (TUI)");
         if (strcmp(aero_settings.nav_mode, "function_keys") == 0) {
@@ -267,24 +267,19 @@ void save_settings(const char *filename) {
 
 
 int main() {
-    char user_app_list[512];
-    snprintf(user_app_list, sizeof(user_app_list), "%s/.config/aero/app-list.txt", getenv("HOME"));
-    const char *applist_paths[] = {
-        getenv("AERO_APP_LIST") ? getenv("AERO_APP_LIST") : NULL,
-        user_app_list,
-        "./app-list.txt",
-        "../app-list.txt",
-        "/usr/local/share/aero/app-list.txt"
-    };
+    const char *applist_paths[] = {"../app-list.txt", "app-list.txt", "/usr/local/share/aero/app-list.txt"};
     int applist_idx = -1;
-    for (int i = 0; i < 5; ++i) {
-        if (applist_paths[i] && load_apps(applist_paths[i])) {
+    for (int i = 0; i < 3; ++i) {
+        if (load_apps(applist_paths[i])) {
             applist_idx = i;
             break;
         }
     }
     if (applist_idx == -1) {
-        fprintf(stderr, "\nERROR: No app-list.txt found!\n\nAero could not find your app list.\n\nPrimary location:  ~/.config/aero/app-list.txt\nFallbacks checked:  $AERO_APP_LIST, ./app-list.txt, ../app-list.txt, /usr/local/share/aero/app-list.txt\n\nTo fix: Run the Aero installer again, or manually create ~/.config/aero/app-list.txt.\n\nEdit your app list at ~/.config/aero/app-list.txt.\n");
+        printf("No app-list.txt found!\n\n");
+        printf("To add apps, edit /usr/local/share/aero/app-list.txt and add entries like:\n");
+        printf("  [\n    {\"name\": \"Text Editor\", \"alias\": \"nano\" }\n  ]\n");
+        printf("You can use any text editor, e.g. 'sudo nano /usr/local/share/aero/app-list.txt'\n");
         return 1;
     }
     initscr();
@@ -341,25 +336,8 @@ int main() {
                         initscr();
                     } else if (settings_highlight == 1) {
                         endwin();
-                        // If user config doesn't exist, copy from system default
-                        FILE *f = fopen(user_app_list, "r");
-                        if (!f) {
-                            FILE *src = fopen("/usr/local/share/aero/app-list.txt", "r");
-                            FILE *dst = fopen(user_app_list, "w");
-                            if (src && dst) {
-                                char buf[4096];
-                                size_t n;
-                                while ((n = fread(buf, 1, sizeof(buf), src)) > 0) fwrite(buf, 1, n, dst);
-                                fclose(src);
-                                fclose(dst);
-                            }
-                        } else {
-                            fclose(f);
-                        }
-                        printf("Opening ~/.config/aero/app-list.txt in nano...\n");
-                        char cmd[600];
-                        snprintf(cmd, sizeof(cmd), "mkdir -p $HOME/.config/aero && nano %s", user_app_list);
-                        system(cmd);
+                        printf("Opening app-list.txt in nano...\n");
+                        system("sudo nano /usr/local/share/aero/app-list.txt");
                         printf("Press Enter to continue...");
                         getchar();
                         initscr();
