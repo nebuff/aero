@@ -1,39 +1,30 @@
-# Aero Shell
+# Aero App Center (TUI)
 
-Aero is a blazing-fast, cross-platform shell for Linux, macOS, and Windows, written in C. It features a modern component/add-on system, customizable prompts, and a simple installer for instant setup.
-
-## Quick Start
-
-1. **Run the installer:**
-   ```sh
-   curl -fsSL https://raw.githubusercontent.com/nebuff/aero/main/install.sh | sh
-   ```
-   This will:
-   - Install a C compiler (if needed)
-   - Download and build Aero
-   - Download all official Aero components
-   - Add the `aero` command to your shell (Bash, Zsh, Fish, PowerShell)
-
-2. **Start Aero:**
-   ```sh
-   aero
-   ```
+Aero is a terminal-based App Center for any computer with a shell. Navigate with arrow keys, select with Enter, and quit with 'q'.
 
 ## Features
-- Fast, native C shell
-- Built-in commands: `cd`, `ls`, `mkdir`, `rmdir`, `rm`, `touch`, `cat`, `pwd`, `echo`, `clear`, and more
-- Component system: extend Aero with add-ons (like plugins)
-- Customizable prompt (like Fish's tide)
-- Easy to install and update
+- TUI interface (ncurses)
+- App browsing and selection
+- Minimal dependencies
+- Easy install via curl
 
-## Project Structure
-- `src/`         — Shell source code
-- `components/`  — Official Aero components (add-ons)
-- `install.sh`   — One-step installer script
+## Install (One-liner)
+```sh
+curl -fsSL https://raw.githubusercontent.com/yourrepo/aero-installer.sh | sh
+```
 
-## Components
-- Add-ons live in `components/` and can be listed/used with `list` and `run <component>` inside Aero.
-- Example: `aero run hello_world` or `aero run set_prompt "[\u@\h \w]$ "`
+## Build Manually
+```sh
+sudo apt-get install libncurses5-dev  # or brew install ncurses on macOS
+cd src
+make
+sudo cp aero /usr/local/bin/
+```
+
+## Usage
+```
+aero
+```
 
 ## License
 MIT
