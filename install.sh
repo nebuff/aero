@@ -67,10 +67,12 @@ if [ -f "$APP_LIST_FILE" ]; then
     echo "\nInstalling apps from app-list.txt..."
     # Extract all aliases from the app-list (skip Package Manager, Notes, and commands with ~ or /)
     APPS_TO_INSTALL=$(grep '"alias"' "$APP_LIST_FILE" | sed 's/.*"alias"[ ]*:[ ]*"\([^"]*\)".*/\1/' | grep -vE 'pkm|nano |~|/|^$')
-    # Always add neofetch to the install list if not present
-    if ! echo "$APPS_TO_INSTALL" | grep -qw neofetch; then
-        APPS_TO_INSTALL="$APPS_TO_INSTALL neofetch"
-    fi
+    # Always add extra utilities to the install list if not present
+    for util in neofetch btop ncdu lsd bat exa fzf ripgrep fd jq tree tldr curl wget unzip zip ranger; do
+        if ! echo "$APPS_TO_INSTALL" | grep -qw "$util"; then
+            APPS_TO_INSTALL="$APPS_TO_INSTALL $util"
+        fi
+    done
     for app in $APPS_TO_INSTALL; do
         if ! command -v "$app" >/dev/null 2>&1; then
             echo "Installing $app..."
