@@ -181,18 +181,24 @@ void draw_menu(int highlight, bool in_settings) {
     if (in_settings) {
         mvprintw(0, 2, "Aero Settings");
         mvprintw(1, 2, "Use arrow keys, Enter to select, q to return.");
-        if (highlight == 0) attron(COLOR_PAIR(3));
-        mvprintw(3, 4, "Update Aero");
-        if (highlight == 0) attroff(COLOR_PAIR(3));
-        if (highlight == 1) attron(COLOR_PAIR(3));
-        mvprintw(4, 4, "Edit App List");
-        if (highlight == 1) attroff(COLOR_PAIR(3));
-        if (highlight == 2) attron(COLOR_PAIR(3));
-        mvprintw(5, 4, "Back");
-        if (highlight == 2) attroff(COLOR_PAIR(3));
-        if (highlight == 3) attron(COLOR_PAIR(3));
-        mvprintw(7, 4, "Special Key Mode: %s", strcmp(aero_settings.nav_mode, "function_keys") == 0 ? "Function Keys" : "Letters");
-        if (highlight == 3) attroff(COLOR_PAIR(3));
+        for (int i = 0; i < 4; ++i) {
+            if (i == highlight) {
+                attron(COLOR_PAIR(2));
+            } else {
+                attron(COLOR_PAIR(1));
+            }
+            switch (i) {
+                case 0: mvprintw(3, 4, "Update Aero"); break;
+                case 1: mvprintw(4, 4, "Edit App List"); break;
+                case 2: mvprintw(5, 4, "Back"); break;
+                case 3: mvprintw(7, 4, "Special Key Mode: %s", strcmp(aero_settings.nav_mode, "function_keys") == 0 ? "Function Keys" : "Letters"); break;
+            }
+            if (i == highlight) {
+                attroff(COLOR_PAIR(2));
+            } else {
+                attroff(COLOR_PAIR(1));
+            }
+        }
         mvprintw(8, 4, "(Toggle and save to app-list.txt)");
         mvprintw(10, 2, "App Color: fg=%s bg=%s", aero_settings.app_fg, aero_settings.app_bg);
         mvprintw(11, 2, "Selected Color: fg=%s bg=%s", aero_settings.sel_fg, aero_settings.sel_bg);
