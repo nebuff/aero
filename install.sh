@@ -6,21 +6,21 @@ set -e
 # Detect OS and install ncurses/curl/git/build tools if needed
 if command -v apt-get >/dev/null 2>&1; then
     sudo apt-get update
-    sudo apt-get install -y build-essential libncurses5-dev curl git
+    sudo apt-get install -y build-essential libncurses5-dev curl git nano
 elif command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y ncurses-devel gcc make curl git
+    sudo dnf install -y ncurses-devel gcc make curl git nano
 elif command -v yum >/dev/null 2>&1; then
-    sudo yum install -y ncurses-devel gcc make curl git
+    sudo yum install -y ncurses-devel gcc make curl git nano
 elif command -v pacman >/dev/null 2>&1; then
-    sudo pacman -Sy --noconfirm ncurses base-devel curl git
+    sudo pacman -Sy --noconfirm ncurses base-devel curl git nano
 elif command -v zypper >/dev/null 2>&1; then
-    sudo zypper install -y ncurses-devel gcc make curl git
+    sudo zypper install -y ncurses-devel gcc make curl git nano
 elif command -v apk >/dev/null 2>&1; then
-    sudo apk add ncurses-dev build-base curl git
+    sudo apk add ncurses-dev build-base curl git nano
 elif command -v brew >/dev/null 2>&1; then
-    brew install ncurses git curl
+    brew install ncurses git curl nano
 elif command -v pkg >/dev/null 2>&1; then
-    sudo pkg install -y ncurses gcc gmake curl git
+    sudo pkg install -y ncurses gcc gmake curl git nano
 else
     echo "Please install ncurses development libraries, gcc, make, curl, and git manually."
     exit 1
@@ -62,14 +62,34 @@ chmod +x aero
 sudo cp aero /usr/local/bin/
 sudo chmod +x /usr/local/bin/aero
 
-# Copy app-list.txt to a shared location, or create an empty one if missing
+# Copy app-list.txt to a shared location, or create a default one if missing
 sudo mkdir -p /usr/local/share/aero
 if [ -f ../app-list.txt ]; then
     sudo cp ../app-list.txt /usr/local/share/aero/app-list.txt
 elif [ -f app-list.txt ]; then
     sudo cp app-list.txt /usr/local/share/aero/app-list.txt
 elif [ ! -f /usr/local/share/aero/app-list.txt ]; then
-    echo '[]' | sudo tee /usr/local/share/aero/app-list.txt > /dev/null
+    sudo tee /usr/local/share/aero/app-list.txt > /dev/null <<EOF
+{"settings": {
+  "nav_mode": "letters",
+  "app_fg": "cyan",
+  "app_bg": "black",
+  "sel_fg": "black",
+  "sel_bg": "yellow"
+}},
+[
+  {"name": "Text Editor", "alias": "nano"},
+  {"name": "Web Browser", "alias": "lynx"},
+  {"name": "Terminal", "alias": "bash"},
+  {"name": "File Manager", "alias": "mc"},
+  {"name": "Music Player", "alias": "cmus"},
+  {"name": "Video Player", "alias": "mpv"},
+  {"name": "Image Viewer", "alias": "fim"},
+  {"name": "Calculator", "alias": "bc"},
+  {"name": "Notes", "alias": "nano ~/notes.txt"},
+  {"name": "Resource Monitor", "alias": "htop"}
+]
+EOF
 fi
 
 # Ensure /usr/local/bin is in PATH and create an alias for all users and shells
