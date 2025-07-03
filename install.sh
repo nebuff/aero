@@ -96,6 +96,18 @@ if [ -d "$HOME/.config/fish" ]; then
     fi
 fi
 
-echo 'If you still see "Unknown Command: aero", log out and back in, or run: export PATH="/usr/local/bin:$PATH"'
+echo
 echo "Aero installed! You may need to open a new terminal window for the command to work."
 echo 'If you still see "Unknown Command: aero", log out and back in, or run: export PATH="/usr/local/bin:$PATH"'
+echo
+echo "Troubleshooting:"
+echo "- If you see 'Failed to load app-list.txt':"
+echo "    1. Make sure /usr/local/share/aero/app-list.txt exists:"
+echo "         ls -l /usr/local/share/aero/app-list.txt"
+echo "    2. If missing, re-run the installer."
+echo "    3. Make sure you are running the latest aero binary:"
+echo "         which aero"
+echo "         ls -l /usr/local/bin/aero"
+echo "    4. If you built manually, run:"
+echo "         cd /Users/holden/aero/src && make && sudo cp aero /usr/local/bin/"
+echo "    5. Try running 'aero' from your home directory."
