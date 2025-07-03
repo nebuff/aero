@@ -8,14 +8,20 @@
 #define APP_NAME_LEN 64
 #define APP_ALIAS_LEN 128
 
-#define SETTINGS_KEY_LEN 16
 
-// Settings struct for special key config
+#define SETTINGS_KEY_LEN 16
+#define COLOR_NAME_LEN 16
+
+// Settings struct for special key config and color config
 typedef struct {
     char nav_mode[SETTINGS_KEY_LEN]; // "letters" or "function_keys"
+    char app_fg[COLOR_NAME_LEN];     // e.g. "cyan"
+    char app_bg[COLOR_NAME_LEN];     // e.g. "black"
+    char sel_fg[COLOR_NAME_LEN];     // e.g. "black"
+    char sel_bg[COLOR_NAME_LEN];     // e.g. "yellow"
 } AeroSettings;
 
-AeroSettings aero_settings = { .nav_mode = "letters" };
+AeroSettings aero_settings = { .nav_mode = "letters", .app_fg = "cyan", .app_bg = "black", .sel_fg = "black", .sel_bg = "yellow" };
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -39,9 +45,10 @@ bool load_apps(const char *filename) {
     fclose(f);
     char *p = buf;
     app_count = 0;
-    // Look for settings object (e.g. {"settings": {"nav_mode": "letters"}})
+    // Look for settings object (e.g. {"settings": {"nav_mode": "letters", ...}})
     char *settings_p = strstr(buf, "\"settings\"");
     if (settings_p) {
+        // nav_mode
         char *nav_p = strstr(settings_p, "\"nav_mode\"");
         if (nav_p) {
             nav_p = strchr(nav_p, ':');
@@ -54,6 +61,74 @@ bool load_apps(const char *filename) {
                     if (nav_len > 0 && nav_len < SETTINGS_KEY_LEN) {
                         strncpy(aero_settings.nav_mode, nav_p, nav_len);
                         aero_settings.nav_mode[nav_len] = 0;
+                    }
+                }
+            }
+        }
+        // app_fg
+        char *fg_p = strstr(settings_p, "\"app_fg\"");
+        if (fg_p) {
+            fg_p = strchr(fg_p, ':');
+            if (fg_p) {
+                fg_p++;
+                while (*fg_p == ' ' || *fg_p == '"') fg_p++;
+                char *fg_e = strchr(fg_p, '"');
+                if (fg_e) {
+                    int fg_len = fg_e - fg_p;
+                    if (fg_len > 0 && fg_len < COLOR_NAME_LEN) {
+                        strncpy(aero_settings.app_fg, fg_p, fg_len);
+                        aero_settings.app_fg[fg_len] = 0;
+                    }
+                }
+            }
+        }
+        // app_bg
+        char *bg_p = strstr(settings_p, "\"app_bg\"");
+        if (bg_p) {
+            bg_p = strchr(bg_p, ':');
+            if (bg_p) {
+                bg_p++;
+                while (*bg_p == ' ' || *bg_p == '"') bg_p++;
+                char *bg_e = strchr(bg_p, '"');
+                if (bg_e) {
+                    int bg_len = bg_e - bg_p;
+                    if (bg_len > 0 && bg_len < COLOR_NAME_LEN) {
+                        strncpy(aero_settings.app_bg, bg_p, bg_len);
+                        aero_settings.app_bg[bg_len] = 0;
+                    }
+                }
+            }
+        }
+        // sel_fg
+        char *sf_p = strstr(settings_p, "\"sel_fg\"");
+        if (sf_p) {
+            sf_p = strchr(sf_p, ':');
+            if (sf_p) {
+                sf_p++;
+                while (*sf_p == ' ' || *sf_p == '"') sf_p++;
+                char *sf_e = strchr(sf_p, '"');
+                if (sf_e) {
+                    int sf_len = sf_e - sf_p;
+                    if (sf_len > 0 && sf_len < COLOR_NAME_LEN) {
+                        strncpy(aero_settings.sel_fg, sf_p, sf_len);
+                        aero_settings.sel_fg[sf_len] = 0;
+                    }
+                }
+            }
+        }
+        // sel_bg
+        char *sb_p = strstr(settings_p, "\"sel_bg\"");
+        if (sb_p) {
+            sb_p = strchr(sb_p, ':');
+            if (sb_p) {
+                sb_p++;
+                while (*sb_p == ' ' || *sb_p == '"') sb_p++;
+                char *sb_e = strchr(sb_p, '"');
+                if (sb_e) {
+                    int sb_len = sb_e - sb_p;
+                    if (sb_len > 0 && sb_len < COLOR_NAME_LEN) {
+                        strncpy(aero_settings.sel_bg, sb_p, sb_len);
+                        aero_settings.sel_bg[sb_len] = 0;
                     }
                 }
             }
@@ -88,24 +163,40 @@ bool load_apps(const char *filename) {
     return app_count > 0;
 }
 
+// Color name to ncurses color
+int color_from_name(const char *name) {
+    if (strcasecmp(name, "black") == 0) return COLOR_BLACK;
+    if (strcasecmp(name, "red") == 0) return COLOR_RED;
+    if (strcasecmp(name, "green") == 0) return COLOR_GREEN;
+    if (strcasecmp(name, "yellow") == 0) return COLOR_YELLOW;
+    if (strcasecmp(name, "blue") == 0) return COLOR_BLUE;
+    if (strcasecmp(name, "magenta") == 0) return COLOR_MAGENTA;
+    if (strcasecmp(name, "cyan") == 0) return COLOR_CYAN;
+    if (strcasecmp(name, "white") == 0) return COLOR_WHITE;
+    return COLOR_WHITE;
+}
+
 void draw_menu(int highlight, bool in_settings) {
     clear();
     if (in_settings) {
         mvprintw(0, 2, "Aero Settings");
         mvprintw(1, 2, "Use arrow keys, Enter to select, q to return.");
-        if (highlight == 0) attron(A_REVERSE);
+        if (highlight == 0) attron(COLOR_PAIR(3));
         mvprintw(3, 4, "Update Aero");
-        if (highlight == 0) attroff(A_REVERSE);
-        if (highlight == 1) attron(A_REVERSE);
+        if (highlight == 0) attroff(COLOR_PAIR(3));
+        if (highlight == 1) attron(COLOR_PAIR(3));
         mvprintw(4, 4, "Edit App List");
-        if (highlight == 1) attroff(A_REVERSE);
-        if (highlight == 2) attron(A_REVERSE);
+        if (highlight == 1) attroff(COLOR_PAIR(3));
+        if (highlight == 2) attron(COLOR_PAIR(3));
         mvprintw(5, 4, "Back");
-        if (highlight == 2) attroff(A_REVERSE);
-        if (highlight == 3) attron(A_REVERSE);
+        if (highlight == 2) attroff(COLOR_PAIR(3));
+        if (highlight == 3) attron(COLOR_PAIR(3));
         mvprintw(7, 4, "Special Key Mode: %s", strcmp(aero_settings.nav_mode, "function_keys") == 0 ? "Function Keys" : "Letters");
-        if (highlight == 3) attroff(A_REVERSE);
+        if (highlight == 3) attroff(COLOR_PAIR(3));
         mvprintw(8, 4, "(Toggle and save to app-list.txt)");
+        mvprintw(10, 2, "App Color: fg=%s bg=%s", aero_settings.app_fg, aero_settings.app_bg);
+        mvprintw(11, 2, "Selected Color: fg=%s bg=%s", aero_settings.sel_fg, aero_settings.sel_bg);
+        mvprintw(12, 2, "Edit app-list.txt to change colors.");
     } else {
         mvprintw(0, 2, "Aero App Center (TUI)");
         if (strcmp(aero_settings.nav_mode, "function_keys") == 0) {
@@ -114,11 +205,15 @@ void draw_menu(int highlight, bool in_settings) {
             mvprintw(1, 2, "Use arrow keys, Enter to select, q to quit, s for settings.");
         }
         for (int i = 0; i < app_count; ++i) {
-            if (i == highlight)
-                attron(A_REVERSE);
-            mvprintw(i + 3, 4, "%s", apps[i].name);
-            if (i == highlight)
-                attroff(A_REVERSE);
+            if (i == highlight) {
+                attron(COLOR_PAIR(2));
+                mvprintw(i + 3, 4, "%s", apps[i].name);
+                attroff(COLOR_PAIR(2));
+            } else {
+                attron(COLOR_PAIR(1));
+                mvprintw(i + 3, 4, "%s", apps[i].name);
+                attroff(COLOR_PAIR(1));
+            }
         }
     }
     refresh();
@@ -143,6 +238,7 @@ void save_settings(const char *filename) {
     fclose(out);
 }
 
+
 int main() {
     const char *applist_paths[] = {"../app-list.txt", "app-list.txt", "/usr/local/share/aero/app-list.txt"};
     int applist_idx = -1;
@@ -160,6 +256,13 @@ int main() {
         return 1;
     }
     initscr();
+    if (has_colors()) {
+        start_color();
+        // Color pairs: 1 = app, 2 = selected, 3 = settings highlight
+        init_pair(1, color_from_name(aero_settings.app_fg), color_from_name(aero_settings.app_bg));
+        init_pair(2, color_from_name(aero_settings.sel_fg), color_from_name(aero_settings.sel_bg));
+        init_pair(3, color_from_name(aero_settings.sel_fg), color_from_name(aero_settings.sel_bg));
+    }
     clear();
     noecho();
     cbreak();
