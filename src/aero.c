@@ -267,19 +267,21 @@ void save_settings(const char *filename) {
 
 
 int main() {
-    const char *applist_paths[] = {"../app-list.txt", "app-list.txt", "/usr/local/share/aero/app-list.txt"};
+    const char *applist_paths[] = {
+        getenv("AERO_APP_LIST") ? getenv("AERO_APP_LIST") : NULL,
+        "./app-list.txt",
+        "../app-list.txt",
+        "/usr/local/share/aero/app-list.txt"
+    };
     int applist_idx = -1;
-    for (int i = 0; i < 3; ++i) {
-        if (load_apps(applist_paths[i])) {
+    for (int i = 0; i < 4; ++i) {
+        if (applist_paths[i] && load_apps(applist_paths[i])) {
             applist_idx = i;
             break;
         }
     }
     if (applist_idx == -1) {
-        printf("No app-list.txt found!\n\n");
-        printf("To add apps, edit /usr/local/share/aero/app-list.txt and add entries like:\n");
-        printf("  [\n    {\"name\": \"Text Editor\", \"alias\": \"nano\" }\n  ]\n");
-        printf("You can use any text editor, e.g. 'sudo nano /usr/local/share/aero/app-list.txt'\n");
+        fprintf(stderr, "\nERROR: No app-list.txt found!\n\nSearched:\n  $AERO_APP_LIST\n  ./app-list.txt\n  ../app-list.txt\n  /usr/local/share/aero/app-list.txt\n\nTry re-running the installer or set the AERO_APP_LIST environment variable.\n");
         return 1;
     }
     initscr();
