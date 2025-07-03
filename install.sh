@@ -274,23 +274,22 @@ fi
 chmod +x /usr/local/bin/aero
 
 # Copy app-list.txt to a shared location, or create a default one if missing
-if [ ! -d /usr/local/share/aero ]; then
-    if sudo mkdir -p /usr/local/share/aero; then
-        sudo chown "$USER" /usr/local/share/aero
-    else
-        echo "Failed to create /usr/local/share/aero. Please run the installer with sudo or as root." >&2
-        exit 1
-    fi
-fi
+# Create user app-list.txt in ~/.config/aero/app-list.txt if not present
+USER_CONFIG_DIR="$HOME/.config/aero"
+USER_APP_LIST="$USER_CONFIG_DIR/app-list.txt"
+mkdir -p "$USER_CONFIG_DIR"
 if [ -f ../app-list.txt ]; then
-    cp ../app-list.txt /usr/local/share/aero/app-list.txt && sudo chmod a+rw /usr/local/share/aero/app-list.txt
+    cp ../app-list.txt "$USER_APP_LIST"
 elif [ -f app-list.txt ]; then
-    cp app-list.txt /usr/local/share/aero/app-list.txt && sudo chmod a+rw /usr/local/share/aero/app-list.txt
-elif [ ! -f /usr/local/share/aero/app-list.txt ]; then
+    cp app-list.txt "$USER_APP_LIST"
+elif [ ! -f "$USER_APP_LIST" ]; then
     echo "Fetching default app-list.txt from Aero repository..."
-    curl -fsSL https://raw.githubusercontent.com/nebuff/aero/main/app-list.txt -o /tmp/app-list.txt && \
-        cp /tmp/app-list.txt /usr/local/share/aero/app-list.txt && sudo chmod a+rw /usr/local/share/aero/app-list.txt && rm /tmp/app-list.txt
+    curl -fsSL https://raw.githubusercontent.com/nebuff/aero/main/app-list.txt -o "$USER_APP_LIST"
 fi
+# Also install to /usr/local/share/aero/app-list.txt for system fallback
+sudo mkdir -p /usr/local/share/aero
+sudo cp "$USER_APP_LIST" /usr/local/share/aero/app-list.txt
+sudo chmod a+rw /usr/local/share/aero/app-list.txt
 
 # Ensure /usr/local/bin is in PATH and create an alias for all users and shells
 for shellrc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_profile"; do
