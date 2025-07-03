@@ -68,11 +68,15 @@ fi
 chmod +x aero
 # If /usr/local/bin/aero is running, move to temp then overwrite
 if [ -f /usr/local/bin/aero ]; then
-    mv /usr/local/bin/aero /usr/local/bin/aero.old 2>/dev/null || true
+    # Try to copy with overwrite, fallback to move if needed
+    cp -f aero /usr/local/bin/aero 2>/dev/null || {
+        tmpfile="/usr/local/bin/aero.$$.tmp"
+        cp aero "$tmpfile" && mv -f "$tmpfile" /usr/local/bin/aero
+    }
+else
+    cp aero /usr/local/bin/aero
 fi
-cp aero /usr/local/bin/
 chmod +x /usr/local/bin/aero
-rm -f /usr/local/bin/aero.old 2>/dev/null || true
 
 # Copy app-list.txt to a shared location, or create a default one if missing
 sudo mkdir -p /usr/local/share/aero
