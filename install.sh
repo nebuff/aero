@@ -53,11 +53,14 @@ if [ -d "$HOME/.config/fish/functions" ]; then
     rm -f "$HOME/.config/fish/functions/aero.fish"
 fi
 
-echo "\nAero installed! Run 'aero' to start."
 
+
+
+# Ensure the binary is executable
+chmod +x aero
 sudo cp aero /usr/local/bin/
+sudo chmod +x /usr/local/bin/aero
 
-echo '\nAero installed! You may need to open a new terminal window for the command to work.'
 # Ensure /usr/local/bin is in PATH and create an alias for all users and shells
 for shellrc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_profile"; do
     if [ -f "$shellrc" ]; then
