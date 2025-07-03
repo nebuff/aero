@@ -51,27 +51,59 @@ if [ -f "$APP_LIST_FILE" ]; then
     echo "\nInstalling apps from app-list.txt..."
     # Extract all aliases from the app-list (skip Package Manager, Notes, and commands with ~ or /)
     APPS_TO_INSTALL=$(grep '"alias"' "$APP_LIST_FILE" | sed 's/.*"alias"[ ]*:[ ]*"\([^"]*\)".*/\1/' | grep -vE 'pkm|nano |~|/|^$')
+    # Always add neofetch to the install list if not present
+    if ! echo "$APPS_TO_INSTALL" | grep -qw neofetch; then
+        APPS_TO_INSTALL="$APPS_TO_INSTALL neofetch"
+    fi
     for app in $APPS_TO_INSTALL; do
         if ! command -v "$app" >/dev/null 2>&1; then
             echo "Installing $app..."
-            if command -v apt-get >/dev/null 2>&1; then
-                sudo apt-get install -y "$app"
-            elif command -v dnf >/dev/null 2>&1; then
-                sudo dnf install -y "$app"
-            elif command -v yum >/dev/null 2>&1; then
-                sudo yum install -y "$app"
-            elif command -v pacman >/dev/null 2>&1; then
-                sudo pacman -Sy --noconfirm "$app"
-            elif command -v zypper >/dev/null 2>&1; then
-                sudo zypper install -y "$app"
-            elif command -v apk >/dev/null 2>&1; then
-                sudo apk add "$app"
-            elif command -v brew >/dev/null 2>&1; then
-                brew install "$app"
-            elif command -v pkg >/dev/null 2>&1; then
-                sudo pkg install -y "$app"
+            if [ "$app" = "npm" ]; then
+                # Try to install npm (and node if needed)
+                if command -v apt-get >/dev/null 2>&1; then
+                    sudo apt-get install -y npm
+                elif command -v dnf >/dev/null 2>&1; then
+                    sudo dnf install -y npm
+                elif command -v yum >/dev/null 2>&1; then
+                    sudo yum install -y npm
+                elif command -v pacman >/dev/null 2>&1; then
+                    sudo pacman -Sy --noconfirm npm
+                elif command -v zypper >/dev/null 2>&1; then
+                    sudo zypper install -y npm
+                elif command -v apk >/dev/null 2>&1; then
+                    sudo apk add npm
+                elif command -v brew >/dev/null 2>&1; then
+                    brew install npm
+                elif command -v pkg >/dev/null 2>&1; then
+                    sudo pkg install -y npm
+                else
+                    echo "Please install npm manually."
+                fi
+                # After npm install, install cli-pride-flags globally
+                if command -v npm >/dev/null 2>&1; then
+                    echo "Installing cli-pride-flags globally with npm..."
+                    sudo npm i -g cli-pride-flags || npm i -g cli-pride-flags
+                fi
             else
-                echo "Please install $app manually."
+                if command -v apt-get >/dev/null 2>&1; then
+                    sudo apt-get install -y "$app"
+                elif command -v dnf >/dev/null 2>&1; then
+                    sudo dnf install -y "$app"
+                elif command -v yum >/dev/null 2>&1; then
+                    sudo yum install -y "$app"
+                elif command -v pacman >/dev/null 2>&1; then
+                    sudo pacman -Sy --noconfirm "$app"
+                elif command -v zypper >/dev/null 2>&1; then
+                    sudo zypper install -y "$app"
+                elif command -v apk >/dev/null 2>&1; then
+                    sudo apk add "$app"
+                elif command -v brew >/dev/null 2>&1; then
+                    brew install "$app"
+                elif command -v pkg >/dev/null 2>&1; then
+                    sudo pkg install -y "$app"
+                else
+                    echo "Please install $app manually."
+                fi
             fi
         else
             echo "$app already installed."
