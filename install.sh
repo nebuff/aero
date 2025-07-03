@@ -1,105 +1,3 @@
-# --- Go Language Auto-Install ---
-if ! command -v go >/dev/null 2>&1; then
-    echo "Go is not installed. Attempting to install Go..."
-    if command -v apt-get >/dev/null 2>&1; then
-        sudo apt-get update
-        sudo apt-get install -y golang
-    elif command -v dnf >/dev/null 2>&1; then
-        sudo dnf install -y golang
-    elif command -v yum >/dev/null 2>&1; then
-        sudo yum install -y golang
-    elif command -v pacman >/dev/null 2>&1; then
-        sudo pacman -Sy --noconfirm go
-    elif command -v zypper >/dev/null 2>&1; then
-        sudo zypper install -y go
-    elif command -v apk >/dev/null 2>&1; then
-        sudo apk add go
-    elif command -v brew >/dev/null 2>&1; then
-        brew install go
-    elif command -v pkg >/dev/null 2>&1; then
-        sudo pkg install -y go
-    else
-        # Fallback: Download Go binary from official site (Linux/macOS x86_64/arm64)
-        GO_VERSION="1.22.4"
-        ARCH="$(uname -m)"
-        OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
-        if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi
-        if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then ARCH="arm64"; fi
-        GO_TARBALL="go${GO_VERSION}.${OS}-${ARCH}.tar.gz"
-        GO_URL="https://go.dev/dl/${GO_TARBALL}"
-        TMPDIR="/tmp/go-installer-$$"
-        mkdir -p "$TMPDIR"
-        echo "Downloading $GO_URL ..."
-        curl -L "$GO_URL" -o "$TMPDIR/$GO_TARBALL" || wget "$GO_URL" -O "$TMPDIR/$GO_TARBALL"
-        sudo tar -C /usr/local -xzf "$TMPDIR/$GO_TARBALL"
-        rm -rf "$TMPDIR"
-        # Add /usr/local/go/bin to PATH if not present
-        for shellrc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_profile"; do
-            if [ -f "$shellrc" ]; then
-                if ! grep -q '/usr/local/go/bin' "$shellrc"; then
-                    echo 'export PATH="/usr/local/go/bin:$PATH"' >> "$shellrc"
-                fi
-            fi
-        done
-        if [ -d "$HOME/.config/fish" ]; then
-            if ! grep -q '/usr/local/go/bin' "$HOME/.config/fish/config.fish" 2>/dev/null; then
-                echo 'set -gx PATH /usr/local/go/bin $PATH' >> "$HOME/.config/fish/config.fish"
-            fi
-        fi
-        export PATH="/usr/local/go/bin:$PATH"
-    fi
-    if command -v go >/dev/null 2>&1; then
-        echo "Go installed successfully."
-    else
-        echo "Go installation failed. Please install Go manually."
-    fi
-else
-    echo "Go already installed."
-fi
-
-install_go() {
-    # Try to install Go if not present
-    if ! command -v go >/dev/null 2>&1; then
-        echo "Go is not installed. Attempting to install Go..."
-        if command -v apt-get >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y golang
-        elif command -v dnf >/dev/null 2>&1; then
-            sudo dnf install -y golang
-        elif command -v yum >/dev/null 2>&1; then
-            sudo yum install -y golang
-        elif command -v pacman >/dev/null 2>&1; then
-            sudo pacman -Sy --noconfirm go
-        elif command -v zypper >/dev/null 2>&1; then
-            sudo zypper install -y go
-        elif command -v apk >/dev/null 2>&1; then
-            sudo apk add go
-        elif command -v brew >/dev/null 2>&1; then
-            brew install go
-        elif command -v pkg >/dev/null 2>&1; then
-            sudo pkg install -y go
-        else
-            # Fallback: download Go tarball from official site
-            GO_VERSION="1.22.4"
-            ARCH=$(uname -m)
-            OS=$(uname | tr '[:upper:]' '[:lower:]')
-            if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi
-            if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then ARCH="arm64"; fi
-            GO_TARBALL="go${GO_VERSION}.${OS}-${ARCH}.tar.gz"
-            GO_URL="https://go.dev/dl/${GO_TARBALL}"
-            echo "Downloading Go from $GO_URL ..."
-            curl -LO "$GO_URL" && sudo tar -C /usr/local -xzf "$GO_TARBALL" && rm "$GO_TARBALL"
-            if ! grep -q '/usr/local/go/bin' "$HOME/.profile" 2>/dev/null; then
-                echo 'export PATH=$PATH:/usr/local/go/bin' >> "$HOME/.profile"
-            fi
-            export PATH=$PATH:/usr/local/go/bin
-        fi
-    fi
-}
-
-# Install Go if needed (for Discordo and other Go-based apps)
-install_go
-
 # Install Discordo (TUI Discord client)
 if ! command -v discordo >/dev/null 2>&1; then
     echo "Installing Discordo..."
@@ -111,7 +9,7 @@ if ! command -v discordo >/dev/null 2>&1; then
         cd ..
         rm -rf /tmp/discordo-inst
     else
-        echo "Go installation failed. Please install Go to use Discordo."
+        echo "Go is not installed. Please install Go to use Discordo."
     fi
 else
     echo "Discordo already installed."
@@ -274,39 +172,33 @@ fi
 chmod +x /usr/local/bin/aero
 
 # Copy app-list.txt to a shared location, or create a default one if missing
-# Create user app-list.txt in ~/.config/aero/app-list.txt if not present
-USER_CONFIG_DIR="$HOME/.config/aero"
-USER_APP_LIST="$USER_CONFIG_DIR/app-list.txt"
-mkdir -p "$USER_CONFIG_DIR"
-if [ -f ../app-list.txt ]; then
-    sudo cp ../app-list.txt "$USER_APP_LIST"
-elif [ -f app-list.txt ]; then
-    sudo cp app-list.txt "$USER_APP_LIST"
-fi
-# If user app-list.txt still does not exist, fetch from repo
-if [ ! -f "$USER_APP_LIST" ]; then
-    echo "Fetching default app-list.txt from Aero repository..."
-    sudo curl -fsSL https://raw.githubusercontent.com/nebuff/aero/main/app-list.txt -o "$USER_APP_LIST"
-fi
-# Ensure the user app-list.txt is readable and writable
-sudo chmod 600 "$USER_APP_LIST"
-# Also install to /usr/local/share/aero/app-list.txt for system fallback
 sudo mkdir -p /usr/local/share/aero
-sudo cp "$USER_APP_LIST" /usr/local/share/aero/app-list.txt
-sudo chmod a+rw /usr/local/share/aero/app-list.txt
-echo "\nAero app-list.txt created at: $USER_APP_LIST"
-echo "You can edit your app list with: nano $USER_APP_LIST"
-ls -l "$USER_APP_LIST"
-
-# Ensure user app-list.txt always exists (even if deleted after install)
-if [ ! -f "$USER_APP_LIST" ]; then
-    if [ -f /usr/local/share/aero/app-list.txt ]; then
-        sudo cp /usr/local/share/aero/app-list.txt "$USER_APP_LIST"
-        sudo chmod 600 "$USER_APP_LIST"
-        echo "Restored ~/.config/aero/app-list.txt from system fallback."
-    else
-        echo "ERROR: Could not create ~/.config/aero/app-list.txt. Please create it manually."
-    fi
+if [ -f ../app-list.txt ]; then
+    sudo cp ../app-list.txt /usr/local/share/aero/app-list.txt
+elif [ -f app-list.txt ]; then
+    sudo cp app-list.txt /usr/local/share/aero/app-list.txt
+elif [ ! -f /usr/local/share/aero/app-list.txt ]; then
+    sudo tee /usr/local/share/aero/app-list.txt > /dev/null <<EOF
+{"settings": {
+  "nav_mode": "letters",
+  "app_fg": "cyan",
+  "app_bg": "black",
+  "sel_fg": "black",
+  "sel_bg": "yellow"
+}},
+[
+  {"name": "Text Editor", "alias": "nano"},
+  {"name": "Web Browser", "alias": "lynx"},
+  {"name": "Terminal", "alias": "bash"},
+  {"name": "File Manager", "alias": "mc"},
+  {"name": "Music Player", "alias": "cmus"},
+  {"name": "Video Player", "alias": "mpv"},
+  {"name": "Image Viewer", "alias": "fim"},
+  {"name": "Calculator", "alias": "bc"},
+  {"name": "Notes", "alias": "nano ~/notes.txt"},
+  {"name": "Resource Monitor", "alias": "htop"}
+]
+EOF
 fi
 
 # Ensure /usr/local/bin is in PATH and create an alias for all users and shells
