@@ -1,11 +1,12 @@
 #!/bin/sh
 # Aero Installer Script
-# Created by NeBuff (Holden)
-# Installs C compiler and dependencies, downloads latest main.c, builds Aero, and adds 'aero' alias to common shells
+# Installs C compiler and dependencies, downloads latest main.c and components, builds Aero, and adds 'aero' alias to common shells
 
 REPO_URL="https://raw.githubusercontent.com/nebuff/aero/main/src/main.c"
+COMPONENTS_URL="https://github.com/nebuff/aero/archive/refs/heads/main.zip"
 INSTALL_DIR="$HOME/aero"
 SRC_DIR="$INSTALL_DIR/src"
+COMPONENTS_DIR="$INSTALL_DIR/components"
 BIN_PATH="$INSTALL_DIR/aero"
 
 # Detect OS and install C compiler if missing
@@ -26,22 +27,22 @@ install_compiler() {
         fi
     elif [ "$UNAME" = "Linux" ]; then
         if command -v apt-get >/dev/null 2>&1; then
-            sudo apt-get update && sudo apt-get install -y build-essential
+            sudo apt-get update && sudo apt-get install -y build-essential unzip curl
         elif command -v dnf >/dev/null 2>&1; then
-            sudo dnf install -y gcc
+            sudo dnf install -y gcc unzip curl
         elif command -v yum >/dev/null 2>&1; then
-            sudo yum install -y gcc
+            sudo yum install -y gcc unzip curl
         elif command -v pacman >/dev/null 2>&1; then
-            sudo pacman -Sy --noconfirm base-devel
+            sudo pacman -Sy --noconfirm base-devel unzip curl
         else
-            echo "Unsupported Linux package manager. Please install gcc manually."
+            echo "Unsupported Linux package manager. Please install gcc, unzip, and curl manually."
             exit 1
         fi
     elif [ "$UNAME" = "MINGW"* ] || [ "$UNAME" = "MSYS"* ] || [ "$UNAME" = "CYGWIN"* ]; then
-        echo "Please install a C compiler (e.g., TDM-GCC or MSYS2) manually on Windows."
+        echo "Please install a C compiler (e.g., TDM-GCC or MSYS2), unzip, and curl manually on Windows."
         exit 1
     else
-        echo "Unknown OS. Please install a C compiler manually."
+        echo "Unknown OS. Please install a C compiler, unzip, and curl manually."
         exit 1
     fi
 }
@@ -51,6 +52,15 @@ install_compiler
 mkdir -p "$SRC_DIR"
 echo "Downloading latest Aero main.c..."
 curl -fsSL "$REPO_URL" -o "$SRC_DIR/main.c"
+
+# Download and extract components
+mkdir -p "$COMPONENTS_DIR"
+echo "Downloading Aero components..."
+tmpzip="/tmp/aero_components.zip"
+curl -fsSL -o "$tmpzip" "$COMPONENTS_URL"
+unzip -o -q "$tmpzip" -d /tmp/aero_repo
+cp -r /tmp/aero_repo/aero-main/components/* "$COMPONENTS_DIR" 2>/dev/null || cp -r /tmp/aero_repo-main/components/* "$COMPONENTS_DIR" 2>/dev/null
+rm -rf /tmp/aero_repo /tmp/aero_repo-main "$tmpzip"
 
 echo "Building Aero..."
 cc "$SRC_DIR/main.c" -o "$BIN_PATH"
