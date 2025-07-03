@@ -351,12 +351,13 @@ int main() {
                 break;
             case '\n':
                 endwin();
+                // Clear the terminal before running the application
+                system("clear");
                 printf("Launching: %s\n", apps[highlight].alias);
                 char cmd[APP_ALIAS_LEN + 32];
                 snprintf(cmd, sizeof(cmd), "%s", apps[highlight].alias);
                 system(cmd);
-                printf("\nPress Enter to return to Aero...");
-                getchar();
+                // Automatically return to Aero without waiting for Enter
                 initscr();
                 clear();
                 noecho();
