@@ -56,10 +56,20 @@ fi
 
 
 
+
 # Ensure the binary is executable
 chmod +x aero
 sudo cp aero /usr/local/bin/
 sudo chmod +x /usr/local/bin/aero
+
+# Copy app-list.txt to a shared location
+if [ -f ../app-list.txt ]; then
+    sudo mkdir -p /usr/local/share/aero
+    sudo cp ../app-list.txt /usr/local/share/aero/app-list.txt
+elif [ -f app-list.txt ]; then
+    sudo mkdir -p /usr/local/share/aero
+    sudo cp app-list.txt /usr/local/share/aero/app-list.txt
+fi
 
 # Ensure /usr/local/bin is in PATH and create an alias for all users and shells
 for shellrc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_profile"; do
