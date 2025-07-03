@@ -12,7 +12,7 @@ curl -fsSL https://raw.githubusercontent.com/nebuff/aero/refs/heads/main/src/aer
 cc "$TMP_AERO.c" -o "$TMP_AERO" -lncurses
 
 # Move to /aero (no sudo required if user owns /aero)
-mv "$TMP_AERO" /aero/aero
+sudo mv "$TMP_AERO" /aero/aero
 chmod +x /aero/aero
 
 # Clean up
