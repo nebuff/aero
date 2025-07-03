@@ -26,11 +26,9 @@ AeroSettings aero_settings = { .nav_mode = "letters", .app_fg = "cyan", .app_bg 
 #include <stdio.h>
 #include <stdbool.h>
 
-
 typedef struct {
     char name[APP_NAME_LEN];
     char alias[APP_ALIAS_LEN];
-    int entertoreturn; // 0 = auto return, 1 = wait for enter
 } App;
 
 App apps[MAX_APPS];
@@ -159,19 +157,6 @@ bool load_apps(const char *filename) {
         int alen = ae-a;
         strncpy(apps[app_count].alias, a, alen);
         apps[app_count].alias[alen] = 0;
-        // Look for entertoreturn (default: 0)
-        apps[app_count].entertoreturn = 0;
-        char *e = strstr(ae, "\"entertoreturn\"");
-        if (e) {
-            e = strchr(e, ':');
-            if (e) {
-                e++;
-                while (*e == ' ' || *e == '"') e++;
-                if (strncmp(e, "true", 4) == 0 || *e == '1') {
-                    apps[app_count].entertoreturn = 1;
-                }
-            }
-        }
         app_count++;
         p = ae;
     }
@@ -191,29 +176,27 @@ int color_from_name(const char *name) {
     return COLOR_WHITE;
 }
 
-void draw_menu(int highlight, bool in_settings) {
+void draw_menu(int highlight, bool in_settings, int scroll_offset) {
     clear();
+    int max_y, max_x;
+    getmaxyx(stdscr, max_y, max_x);
+    int header_lines = in_settings ? 13 : 2;
+    int visible_lines = max_y - header_lines;
     if (in_settings) {
         mvprintw(0, 2, "Aero Settings");
         mvprintw(1, 2, "Use arrow keys, Enter to select, q to return.");
-        for (int i = 0; i < 4; ++i) {
-            if (i == highlight) {
-                attron(COLOR_PAIR(2));
-            } else {
-                attron(COLOR_PAIR(1));
-            }
-            switch (i) {
-                case 0: mvprintw(3, 4, "Update Aero"); break;
-                case 1: mvprintw(4, 4, "Edit App List"); break;
-                case 2: mvprintw(5, 4, "Back"); break;
-                case 3: mvprintw(7, 4, "Special Key Mode: %s", strcmp(aero_settings.nav_mode, "function_keys") == 0 ? "Function Keys" : "Letters"); break;
-            }
-            if (i == highlight) {
-                attroff(COLOR_PAIR(2));
-            } else {
-                attroff(COLOR_PAIR(1));
-            }
-        }
+        if (highlight == 0) attron(COLOR_PAIR(3));
+        mvprintw(3, 4, "Update Aero");
+        if (highlight == 0) attroff(COLOR_PAIR(3));
+        if (highlight == 1) attron(COLOR_PAIR(3));
+        mvprintw(4, 4, "Edit App List");
+        if (highlight == 1) attroff(COLOR_PAIR(3));
+        if (highlight == 2) attron(COLOR_PAIR(3));
+        mvprintw(5, 4, "Back");
+        if (highlight == 2) attroff(COLOR_PAIR(3));
+        if (highlight == 3) attron(COLOR_PAIR(3));
+        mvprintw(7, 4, "Special Key Mode: %s", strcmp(aero_settings.nav_mode, "function_keys") == 0 ? "Function Keys" : "Letters");
+        if (highlight == 3) attroff(COLOR_PAIR(3));
         mvprintw(8, 4, "(Toggle and save to app-list.txt)");
         mvprintw(10, 2, "App Color: fg=%s bg=%s", aero_settings.app_fg, aero_settings.app_bg);
         mvprintw(11, 2, "Selected Color: fg=%s bg=%s", aero_settings.sel_fg, aero_settings.sel_bg);
@@ -225,23 +208,28 @@ void draw_menu(int highlight, bool in_settings) {
         } else {
             mvprintw(1, 2, "Use arrow keys, Enter to select, q to quit, s for settings.");
         }
-        for (int i = 0; i < app_count; ++i) {
+        int start = scroll_offset;
+        int end = start + visible_lines;
+        if (end > app_count) end = app_count;
+        for (int i = start; i < end; ++i) {
+            int y = i - start + 2;
             if (i == highlight) {
                 attron(COLOR_PAIR(2));
-                mvprintw(i + 3, 4, "%s", apps[i].name);
+                mvprintw(y, 4, "%s", apps[i].name);
                 attroff(COLOR_PAIR(2));
             } else {
                 attron(COLOR_PAIR(1));
-                mvprintw(i + 3, 4, "%s", apps[i].name);
+                mvprintw(y, 4, "%s", apps[i].name);
                 attroff(COLOR_PAIR(1));
             }
         }
+        // Show scroll indicators if needed
+        if (scroll_offset > 0) mvprintw(2, max_x-3, "^");
+        if (end < app_count) mvprintw(max_y-1, max_x-3, "v");
     }
     refresh();
 }
 
-
-// Save nav_mode and color settings to app-list.txt (preserves apps, rewrites settings)
 void save_settings(const char *filename) {
     FILE *f = fopen(filename, "r");
     if (!f) return;
@@ -254,36 +242,26 @@ void save_settings(const char *filename) {
     if (!apps_start) return;
     FILE *out = fopen(filename, "w");
     if (!out) return;
-    fprintf(out,
-        "{\"settings\":{\"nav_mode\":\"%s\",\"app_fg\":\"%s\",\"app_bg\":\"%s\",\"sel_fg\":\"%s\",\"sel_bg\":\"%s\"}},\n",
-        aero_settings.nav_mode,
-        aero_settings.app_fg,
-        aero_settings.app_bg,
-        aero_settings.sel_fg,
-        aero_settings.sel_bg);
+    fprintf(out, "{\"settings\":{\"nav_mode\":\"%s\"}},\n", aero_settings.nav_mode);
     fputs(apps_start, out);
     fclose(out);
 }
 
 
 int main() {
-    // Ensure /aero exists before doing anything else
-    system("mkdir -p /aero");
-    // Only use /aero/app-list.txt for all Aero data/configs
-    const char *applist_paths[] = {"/aero/app-list.txt"};
+    const char *applist_paths[] = {"../app-list.txt", "app-list.txt", "/usr/local/share/aero/app-list.txt"};
     int applist_idx = -1;
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < 3; ++i) {
         if (load_apps(applist_paths[i])) {
             applist_idx = i;
             break;
         }
     }
     if (applist_idx == -1) {
-        printf("No /aero/app-list.txt found!\n\n");
-        printf("Please run the installer script to set up Aero:\n");
-        printf("To add apps, edit /aero/app-list.txt and add entries like:\n");
+        printf("No app-list.txt found!\n\n");
+        printf("To add apps, edit /usr/local/share/aero/app-list.txt and add entries like:\n");
         printf("  [\n    {\"name\": \"Text Editor\", \"alias\": \"nano\" }\n  ]\n");
-        printf("You can use any text editor, e.g. 'nano /aero/app-list.txt'\n");
+        printf("You can use any text editor, e.g. 'sudo nano /usr/local/share/aero/app-list.txt'\n");
         return 1;
     }
     initscr();
@@ -304,7 +282,12 @@ int main() {
     bool in_settings = false;
     int settings_highlight = 0;
     int settings_max = 4; // 0:Update, 1:Edit, 2:Back, 3:Special Key Mode
-    draw_menu(highlight, in_settings);
+    int scroll_offset = 0;
+    int max_y, max_x;
+    getmaxyx(stdscr, max_y, max_x);
+    int header_lines = 2;
+    int visible_lines = max_y - header_lines;
+    draw_menu(highlight, in_settings, scroll_offset);
     while (1) {
         ch = getch();
         if (!in_settings) {
@@ -312,13 +295,13 @@ int main() {
             if ((strcmp(aero_settings.nav_mode, "function_keys") == 0 && ch == KEY_F(2)) || (strcmp(aero_settings.nav_mode, "letters") == 0 && ch == 's')) {
                 in_settings = true;
                 settings_highlight = 0;
-                draw_menu(settings_highlight, in_settings);
+                draw_menu(settings_highlight, in_settings, 0);
                 continue;
             }
         } else {
             if ((strcmp(aero_settings.nav_mode, "function_keys") == 0 && ch == KEY_F(1)) || (strcmp(aero_settings.nav_mode, "letters") == 0 && ch == 'q')) {
                 in_settings = false;
-                draw_menu(highlight, in_settings);
+                draw_menu(highlight, in_settings, scroll_offset);
                 continue;
             }
         }
@@ -341,7 +324,7 @@ int main() {
                     } else if (settings_highlight == 1) {
                         endwin();
                         printf("Opening app-list.txt in nano...\n");
-                        system("nano /aero/app-list.txt");
+                        system("sudo nano /usr/local/share/aero/app-list.txt");
                         printf("Press Enter to continue...");
                         getchar();
                         initscr();
@@ -358,9 +341,12 @@ int main() {
                     in_settings = false;
                     break;
             }
-            draw_menu(settings_highlight, in_settings);
+            draw_menu(settings_highlight, in_settings, 0);
             continue;
         }
+        getmaxyx(stdscr, max_y, max_x);
+        visible_lines = max_y - header_lines;
+        int last_visible = scroll_offset + visible_lines - 1;
         switch (ch) {
             case KEY_UP:
                 if (highlight > 0) --highlight;
@@ -368,18 +354,20 @@ int main() {
             case KEY_DOWN:
                 if (highlight < app_count - 1) ++highlight;
                 break;
+            case KEY_NPAGE: // Page Down
+                highlight += visible_lines;
+                if (highlight >= app_count) highlight = app_count - 1;
+                break;
+            case KEY_PPAGE: // Page Up
+                highlight -= visible_lines;
+                if (highlight < 0) highlight = 0;
+                break;
             case '\n':
                 endwin();
-                // Clear the terminal before running the application
                 system("clear");
-                // Removed launch message
                 char cmd[APP_ALIAS_LEN + 32];
                 snprintf(cmd, sizeof(cmd), "%s", apps[highlight].alias);
                 system(cmd);
-                if (apps[highlight].entertoreturn) {
-                    printf("\nPress Enter to return to Aero...");
-                    getchar();
-                }
                 initscr();
                 clear();
                 noecho();
@@ -387,7 +375,10 @@ int main() {
                 keypad(stdscr, TRUE);
                 break;
         }
-        draw_menu(highlight, in_settings);
+        // Adjust scroll_offset to keep highlight visible
+        if (highlight < scroll_offset) scroll_offset = highlight;
+        if (highlight >= scroll_offset + visible_lines) scroll_offset = highlight - visible_lines + 1;
+        draw_menu(highlight, in_settings, scroll_offset);
     }
     endwin();
     return 0;
