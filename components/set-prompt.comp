@@ -1,0 +1,17 @@
+#!/bin/sh
+# Aero Component: Set Custom Prompt
+# Usage: run set_prompt <prompt_string>
+# Example: run set_prompt "\u@\h:\w$ "
+
+PROMPT_STRING="$1"
+if [ -z "$PROMPT_STRING" ]; then
+  echo "Usage: run set_prompt <prompt_string>"
+  exit 1
+fi
+
+# Save the prompt to a config file Aero can read
+CONFIG_DIR="$HOME/.config/aero"
+CONFIG_FILE="$CONFIG_DIR/prompt.conf"
+mkdir -p "$CONFIG_DIR"
+echo "$PROMPT_STRING" > "$CONFIG_FILE"
+echo "Aero prompt set! Restart Aero to see the new prompt."
