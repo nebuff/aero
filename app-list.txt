@@ -18,5 +18,6 @@
   {"name": "Calculator", "alias": "bc"},
   {"name": "Notes", "alias": "nano ~/notes.txt"},
   {"name": "Resource Monitor", "alias": "htop"}
-  {"name": "NeoFetch", "alias": "neofetch"}
+  {"name": "NeoFetch", "alias", "neofetch"}
+  {"name": "Pride Flag", "alias", "cli-pride-flags"}
 ]
