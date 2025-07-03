@@ -1,3 +1,105 @@
+# --- Go Language Auto-Install ---
+if ! command -v go >/dev/null 2>&1; then
+    echo "Go is not installed. Attempting to install Go..."
+    if command -v apt-get >/dev/null 2>&1; then
+        sudo apt-get update
+        sudo apt-get install -y golang
+    elif command -v dnf >/dev/null 2>&1; then
+        sudo dnf install -y golang
+    elif command -v yum >/dev/null 2>&1; then
+        sudo yum install -y golang
+    elif command -v pacman >/dev/null 2>&1; then
+        sudo pacman -Sy --noconfirm go
+    elif command -v zypper >/dev/null 2>&1; then
+        sudo zypper install -y go
+    elif command -v apk >/dev/null 2>&1; then
+        sudo apk add go
+    elif command -v brew >/dev/null 2>&1; then
+        brew install go
+    elif command -v pkg >/dev/null 2>&1; then
+        sudo pkg install -y go
+    else
+        # Fallback: Download Go binary from official site (Linux/macOS x86_64/arm64)
+        GO_VERSION="1.22.4"
+        ARCH="$(uname -m)"
+        OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+        if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi
+        if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then ARCH="arm64"; fi
+        GO_TARBALL="go${GO_VERSION}.${OS}-${ARCH}.tar.gz"
+        GO_URL="https://go.dev/dl/${GO_TARBALL}"
+        TMPDIR="/tmp/go-installer-$$"
+        mkdir -p "$TMPDIR"
+        echo "Downloading $GO_URL ..."
+        curl -L "$GO_URL" -o "$TMPDIR/$GO_TARBALL" || wget "$GO_URL" -O "$TMPDIR/$GO_TARBALL"
+        sudo tar -C /usr/local -xzf "$TMPDIR/$GO_TARBALL"
+        rm -rf "$TMPDIR"
+        # Add /usr/local/go/bin to PATH if not present
+        for shellrc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_profile"; do
+            if [ -f "$shellrc" ]; then
+                if ! grep -q '/usr/local/go/bin' "$shellrc"; then
+                    echo 'export PATH="/usr/local/go/bin:$PATH"' >> "$shellrc"
+                fi
+            fi
+        done
+        if [ -d "$HOME/.config/fish" ]; then
+            if ! grep -q '/usr/local/go/bin' "$HOME/.config/fish/config.fish" 2>/dev/null; then
+                echo 'set -gx PATH /usr/local/go/bin $PATH' >> "$HOME/.config/fish/config.fish"
+            fi
+        fi
+        export PATH="/usr/local/go/bin:$PATH"
+    fi
+    if command -v go >/dev/null 2>&1; then
+        echo "Go installed successfully."
+    else
+        echo "Go installation failed. Please install Go manually."
+    fi
+else
+    echo "Go already installed."
+fi
+
+install_go() {
+    # Try to install Go if not present
+    if ! command -v go >/dev/null 2>&1; then
+        echo "Go is not installed. Attempting to install Go..."
+        if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y golang
+        elif command -v dnf >/dev/null 2>&1; then
+            sudo dnf install -y golang
+        elif command -v yum >/dev/null 2>&1; then
+            sudo yum install -y golang
+        elif command -v pacman >/dev/null 2>&1; then
+            sudo pacman -Sy --noconfirm go
+        elif command -v zypper >/dev/null 2>&1; then
+            sudo zypper install -y go
+        elif command -v apk >/dev/null 2>&1; then
+            sudo apk add go
+        elif command -v brew >/dev/null 2>&1; then
+            brew install go
+        elif command -v pkg >/dev/null 2>&1; then
+            sudo pkg install -y go
+        else
+            # Fallback: download Go tarball from official site
+            GO_VERSION="1.22.4"
+            ARCH=$(uname -m)
+            OS=$(uname | tr '[:upper:]' '[:lower:]')
+            if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; fi
+            if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then ARCH="arm64"; fi
+            GO_TARBALL="go${GO_VERSION}.${OS}-${ARCH}.tar.gz"
+            GO_URL="https://go.dev/dl/${GO_TARBALL}"
+            echo "Downloading Go from $GO_URL ..."
+            curl -LO "$GO_URL" && sudo tar -C /usr/local -xzf "$GO_TARBALL" && rm "$GO_TARBALL"
+            if ! grep -q '/usr/local/go/bin' "$HOME/.profile" 2>/dev/null; then
+                echo 'export PATH=$PATH:/usr/local/go/bin' >> "$HOME/.profile"
+            fi
+            export PATH=$PATH:/usr/local/go/bin
+        fi
+    fi
+}
+
+# Install Go if needed (for Discordo and other Go-based apps)
+install_go
+
 # Install Discordo (TUI Discord client)
 if ! command -v discordo >/dev/null 2>&1; then
     echo "Installing Discordo..."
@@ -9,7 +111,7 @@ if ! command -v discordo >/dev/null 2>&1; then
         cd ..
         rm -rf /tmp/discordo-inst
     else
-        echo "Go is not installed. Please install Go to use Discordo."
+        echo "Go installation failed. Please install Go to use Discordo."
     fi
 else
     echo "Discordo already installed."
