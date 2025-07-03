@@ -279,17 +279,17 @@ USER_CONFIG_DIR="$HOME/.config/aero"
 USER_APP_LIST="$USER_CONFIG_DIR/app-list.txt"
 mkdir -p "$USER_CONFIG_DIR"
 if [ -f ../app-list.txt ]; then
-    cp ../app-list.txt "$USER_APP_LIST"
+    sudo cp ../app-list.txt "$USER_APP_LIST"
 elif [ -f app-list.txt ]; then
-    cp app-list.txt "$USER_APP_LIST"
+    sudo cp app-list.txt "$USER_APP_LIST"
 fi
 # If user app-list.txt still does not exist, fetch from repo
 if [ ! -f "$USER_APP_LIST" ]; then
     echo "Fetching default app-list.txt from Aero repository..."
-    curl -fsSL https://raw.githubusercontent.com/nebuff/aero/main/app-list.txt -o "$USER_APP_LIST"
+    sudo curl -fsSL https://raw.githubusercontent.com/nebuff/aero/main/app-list.txt -o "$USER_APP_LIST"
 fi
 # Ensure the user app-list.txt is readable and writable
-chmod 600 "$USER_APP_LIST"
+sudo chmod 600 "$USER_APP_LIST"
 # Also install to /usr/local/share/aero/app-list.txt for system fallback
 sudo mkdir -p /usr/local/share/aero
 sudo cp "$USER_APP_LIST" /usr/local/share/aero/app-list.txt
