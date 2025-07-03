@@ -64,8 +64,11 @@ void draw_menu(int highlight, bool in_settings) {
         mvprintw(3, 4, "Update Aero");
         if (highlight == 0) attroff(A_REVERSE);
         if (highlight == 1) attron(A_REVERSE);
-        mvprintw(4, 4, "Back");
+        mvprintw(4, 4, "Edit App List");
         if (highlight == 1) attroff(A_REVERSE);
+        if (highlight == 2) attron(A_REVERSE);
+        mvprintw(5, 4, "Back");
+        if (highlight == 2) attroff(A_REVERSE);
     } else {
         mvprintw(0, 2, "Aero App Center (TUI)");
         mvprintw(1, 2, "Use arrow keys to navigate, Enter to select, q to quit, s for settings.");
@@ -121,13 +124,20 @@ int main() {
                     if (settings_highlight > 0) --settings_highlight;
                     break;
                 case KEY_DOWN:
-                    if (settings_highlight < 1) ++settings_highlight;
+                    if (settings_highlight < 2) ++settings_highlight;
                     break;
                 case '\n':
                     if (settings_highlight == 0) {
                         endwin();
                         printf("Updating Aero...\n");
-                        system("rm -f ../src/aero.c && curl -fsSL https://raw.githubusercontent.com/nebuff/aero/refs/heads/main/src/aero.c -o ../src/aero.c && echo 'Aero updated! Please rebuild.'");
+                        system("curl -fsSL https://raw.githubusercontent.com/nebuff/aero/refs/heads/main/update.sh | sh");
+                        printf("Press Enter to continue...");
+                        getchar();
+                        initscr();
+                    } else if (settings_highlight == 1) {
+                        endwin();
+                        printf("Opening app-list.txt in nano...\n");
+                        system("sudo nano /usr/local/share/aero/app-list.txt");
                         printf("Press Enter to continue...");
                         getchar();
                         initscr();
