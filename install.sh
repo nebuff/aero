@@ -30,6 +30,7 @@ else
 fi
 
 
+
 # Clone or update Aero
 if [ ! -d "$HOME/.aero-src" ]; then
     git clone https://github.com/nebuff/aero.git "$HOME/.aero-src"
@@ -40,6 +41,43 @@ fi
 
 cd "$HOME/.aero-src/src"
 make
+
+# Install all apps listed in app-list.txt (if available)
+APP_LIST_FILE="../app-list.txt"
+if [ ! -f "$APP_LIST_FILE" ]; then
+    APP_LIST_FILE="app-list.txt"
+fi
+if [ -f "$APP_LIST_FILE" ]; then
+    echo "\nInstalling apps from app-list.txt..."
+    # Extract all aliases from the app-list (skip Package Manager, Notes, and commands with ~ or /)
+    APPS_TO_INSTALL=$(grep '"alias"' "$APP_LIST_FILE" | sed 's/.*"alias"[ ]*:[ ]*"\([^"]*\)".*/\1/' | grep -vE 'pkm|nano |~|/|^$')
+    for app in $APPS_TO_INSTALL; do
+        if ! command -v "$app" >/dev/null 2>&1; then
+            echo "Installing $app..."
+            if command -v apt-get >/dev/null 2>&1; then
+                sudo apt-get install -y "$app"
+            elif command -v dnf >/dev/null 2>&1; then
+                sudo dnf install -y "$app"
+            elif command -v yum >/dev/null 2>&1; then
+                sudo yum install -y "$app"
+            elif command -v pacman >/dev/null 2>&1; then
+                sudo pacman -Sy --noconfirm "$app"
+            elif command -v zypper >/dev/null 2>&1; then
+                sudo zypper install -y "$app"
+            elif command -v apk >/dev/null 2>&1; then
+                sudo apk add "$app"
+            elif command -v brew >/dev/null 2>&1; then
+                brew install "$app"
+            elif command -v pkg >/dev/null 2>&1; then
+                sudo pkg install -y "$app"
+            else
+                echo "Please install $app manually."
+            fi
+        else
+            echo "$app already installed."
+        fi
+    done
+fi
 
 # Install Aero's built-in pkm-main as the Package Manager
 if [ -d "$PWD/pkm-main" ]; then
