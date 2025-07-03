@@ -278,6 +278,7 @@ int main() {
     }
     if (applist_idx == -1) {
         printf("No /aero/app-list.txt found!\n\n");
+        printf("Please run the installer script to set up Aero:\n");
         printf("To add apps, edit /aero/app-list.txt and add entries like:\n");
         printf("  [\n    {\"name\": \"Text Editor\", \"alias\": \"nano\" }\n  ]\n");
         printf("You can use any text editor, e.g. 'nano /aero/app-list.txt'\n");
