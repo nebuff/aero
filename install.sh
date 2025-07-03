@@ -6,7 +6,7 @@ set -e
 # Relaunch with sudo if not root
 if [ "$(id -u)" -ne 0 ]; then
     echo "[Aero Installer] Re-running with sudo..."
-    exec sudo sh "$0" "$@"
+    exec sudo /bin/sh "$0" "$@"
 fi
 
 
