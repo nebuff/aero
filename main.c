@@ -135,9 +135,9 @@ int main() {
             continue;
         }
         if (strncmp(input, "run ", 4) == 0) {
-            char cmd[512];
-            snprintf(cmd, sizeof(cmd), "sh ../components/%s", input+4);
-            system(cmd);
+            char comp_cmd[600];
+            snprintf(comp_cmd, sizeof(comp_cmd), "sh '%s/%s'", components_path, input+4);
+            system(comp_cmd);
             continue;
         }
         // Fallback: try to run as a system command
