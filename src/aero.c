@@ -267,6 +267,8 @@ void save_settings(const char *filename) {
 
 
 int main() {
+    // Ensure /aero exists before doing anything else
+    system("mkdir -p /aero");
     // Only use /aero/app-list.txt for all Aero data/configs
     const char *applist_paths[] = {"/aero/app-list.txt"};
     int applist_idx = -1;
