@@ -1,161 +1,39 @@
-# Aero
+# Aero Shell
 
-Aero is a simple, extensible, and colorful command shell for macOS and Linux, written in Python.  
-It supports plugins, user configuration, and a friendly installer.
+Aero is a blazing-fast, cross-platform shell for Linux, macOS, and Windows, written in C. It features a modern component/add-on system, customizable prompts, and a simple installer for instant setup.
 
-https://github.com/nebuff/aero/releases/download/Installer/install.sh
+## Quick Start
 
----
-
-## Features
-
-- Basic shell commands: `ls`, `cd`, `mkdir`, `exit`, `quit`
-- Plugin system: install, list, and delete plugins
-- Colorful prompt and output (fully configurable)
-- User configuration: username, color settings, and more
-- Easy installation with our Installer
-- Easy Updating with the handy Updater Plugin!
-
----
-
-## Installation
-
-1. **Install**
-
-   - Download the install.sh script from the Repo
-
-   > Click on the "install.sh" file in files
-   >  then Navigate to the "Download raw file" Tab on the top right
-
+1. **Run the installer:**
    ```sh
-   cd ~/Downloads
-   chmod +x install.sh
-   ./install.sh
+   curl -fsSL https://raw.githubusercontent.com/nebuff/aero/main/install.sh | sh
+   ```
+   This will:
+   - Install a C compiler (if needed)
+   - Download and build Aero
+   - Download all official Aero components
+   - Add the `aero` command to your shell (Bash, Zsh, Fish, PowerShell)
+
+2. **Start Aero:**
+   ```sh
+   aero
    ```
 
-   > **Note:**  
-   > The installer will guide you through selecting a version and will set up Aero in `~/aero`.
+## Features
+- Fast, native C shell
+- Built-in commands: `cd`, `ls`, `mkdir`, `rmdir`, `rm`, `touch`, `cat`, `pwd`, `echo`, `clear`, and more
+- Component system: extend Aero with add-ons (like plugins)
+- Customizable prompt (like Fish's tide)
+- Easy to install and update
 
-3. **After install:**
+## Project Structure
+- `src/`         — Shell source code
+- `components/`  — Official Aero components (add-ons)
+- `install.sh`   — One-step installer script
 
-   - Open a **new terminal window** or run:
-     ```sh
-     source ~/.zshrc
-     ```
-     or
-     ```sh
-     source ~/.bashrc
-     ```
-   - Now you can launch Aero from anywhere by typing:
-     ```sh
-     aero
-     ```
----
-
-## Using TUI
-
-  >**Warning**
-  >Doing this could ruin your shell, Proceed with caution
-
-   - Normaly Install Exept install TUI Version only
-   - Make sure you have the Latest Python Version
-   - Install... Just figure it out
-
----
-
-## Usage
-
-When you start Aero, you'll see a colorful prompt and a welcome message with your username.
-
-### Built-in Commands
-
-| Command                | Description                       |
-|------------------------|-----------------------------------|
-| `ls`                   | List files in the current directory |
-| `cd [dir]`             | Change directory                  |
-| `mkdir <dir>`          | Make a new directory              |
-| `exit` or `quit`       | Exit Aero                         |
-| `installist`           | List installed and available plugins |
-| `install <name>`       | Install a plugin by name          |
-| `installdelete <name>` | Delete an installed plugin        |
-| `config`               | Show and change configuration     |
-
----
-
-## Configuration
-
-Aero stores its configuration in `~/aero/config.json`.
-
-You can view and change settings using the `config` command inside Aero:
-
-- Show all config options:
-  ```
-  config
-  ```
-- Change your username:
-  ```
-  config username YourName
-  ```
-- Turn color on or off:
-  ```
-  config color on
-  config color off
-  ```
-- Change a color (use ANSI codes, e.g. `\033[35m` for magenta):
-  ```
-  config color prompt \033[35m
-  config color error \033[31m
-  ```
-- Show the raw config file:
-  ```
-  config show
-  ```
-
----
-
-## Plugins
-
-- To see available plugins:
-  ```
-  installist
-  ```
-- To install a plugin:
-  ```
-  install <pluginname>
-  ```
-- To delete a plugin:
-  ```
-  installdelete <pluginname>
-  ```
-
-Plugins are loaded from the `~/aero/plugins` directory at startup.
-
----
-
-## Troubleshooting
-
-- **Command not found:**  
-  Make sure you opened a new terminal window or sourced your shell config after install.
-- **Wrong Python version:**  
-  The installer sets up Aero to use the correct Python. If you have issues, check your alias in `~/.zshrc` or `~/.bashrc`.
-- **Config not saving:**  
-  Make sure you have write permissions to `~/aero/config.json`.
-
----
-
-## Uninstall
-
-To remove Aero, simply delete the `~/aero` directory and remove the `aero` alias from your shell config (`~/.zshrc` or `~/.bashrc`).
-
----
+## Components
+- Add-ons live in `components/` and can be listed/used with `list` and `run <component>` inside Aero.
+- Example: `aero run hello_world` or `aero run set_prompt "[\u@\h \w]$ "`
 
 ## License
-
-MIT License
-
----
-
-## Credits
-
-Aero Installer and Shell by Holden  
-See [https://github.com/nebuff/aero](https://github.com/nebuff/aero) for updates.
+MIT
