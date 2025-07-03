@@ -280,27 +280,9 @@ if [ -f ../app-list.txt ]; then
 elif [ -f app-list.txt ]; then
     sudo cp app-list.txt /usr/local/share/aero/app-list.txt
 elif [ ! -f /usr/local/share/aero/app-list.txt ]; then
-    sudo tee /usr/local/share/aero/app-list.txt > /dev/null <<EOF
-{"settings": {
-  "nav_mode": "letters",
-  "app_fg": "cyan",
-  "app_bg": "black",
-  "sel_fg": "black",
-  "sel_bg": "yellow"
-}},
-[
-  {"name": "Text Editor", "alias": "nano"},
-  {"name": "Web Browser", "alias": "lynx"},
-  {"name": "Terminal", "alias": "bash"},
-  {"name": "File Manager", "alias": "mc"},
-  {"name": "Music Player", "alias": "cmus"},
-  {"name": "Video Player", "alias": "mpv"},
-  {"name": "Image Viewer", "alias": "fim"},
-  {"name": "Calculator", "alias": "bc"},
-  {"name": "Notes", "alias": "nano ~/notes.txt"},
-  {"name": "Resource Monitor", "alias": "htop"}
-]
-EOF
+    echo "Fetching default app-list.txt from Aero repository..."
+    curl -fsSL https://raw.githubusercontent.com/nebuff/aero/main/app-list.txt -o /tmp/app-list.txt && \
+        sudo cp /tmp/app-list.txt /usr/local/share/aero/app-list.txt && rm /tmp/app-list.txt
 fi
 
 # Ensure /usr/local/bin is in PATH and create an alias for all users and shells
