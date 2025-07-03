@@ -9,79 +9,34 @@ if [ "$(id -u)" -ne 0 ]; then
     exec sudo /bin/sh "$0" "$@"
 fi
 
-
-# Detect OS and install ncurses/curl/git/build tools if needed
-if command -v apt-get >/dev/null 2>&1; then
-    sudo apt-get update
-    sudo apt-get install -y build-essential libncurses5-dev curl git nano
-elif command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y ncurses-devel gcc make curl git nano
-elif command -v yum >/dev/null 2>&1; then
-    sudo yum install -y ncurses-devel gcc make curl git nano
-elif command -v pacman >/dev/null 2>&1; then
-    sudo pacman -Sy --noconfirm ncurses base-devel curl git nano
-elif command -v zypper >/dev/null 2>&1; then
-    sudo zypper install -y ncurses-devel gcc make curl git nano
-elif command -v apk >/dev/null 2>&1; then
-    sudo apk add ncurses-dev build-base curl git nano
-elif command -v brew >/dev/null 2>&1; then
-    brew install ncurses git curl nano
-elif command -v pkg >/dev/null 2>&1; then
-    sudo pkg install -y ncurses gcc gmake curl git nano
-else
-    echo "Please install ncurses development libraries, gcc, make, curl, and git manually."
-    exit 1
+# Ensure /aero exists and is owned by the user
+if [ ! -d /aero ]; then
+    mkdir -p /aero
+    chown "$SUDO_USER" /aero 2>/dev/null || chown "$USER" /aero 2>/dev/null || true
 fi
 
-# Clone or update Aero
-
-# Use the official repo
-if [ ! -d "$HOME/.aero-src" ]; then
-    git clone https://github.com/nebuff/aero.git "$HOME/.aero-src"
+# Clone or update Aero source into /aero/.aero-src
+if [ ! -d /aero/.aero-src ]; then
+    git clone https://github.com/nebuff/aero.git /aero/.aero-src
 else
-    cd "$HOME/.aero-src"
+    cd /aero/.aero-src
     git pull
 fi
 
-cd "$HOME/.aero-src/src"
+cd /aero/.aero-src/src
 make
 
+# Install the Aero binary to /aero
+cp -f aero /aero/aero
+chmod +x /aero/aero
 
-# Remove any existing aliases for 'aero' in common shell config files
-for shellrc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_profile"; do
-    if [ -f "$shellrc" ]; then
-        sed -i.bak '/alias[[:space:]]\+aero=/d' "$shellrc" 2>/dev/null || true
-        rm -f "$shellrc.bak"
-    fi
-done
-
-# Remove any existing fish function for aero
-if [ -d "$HOME/.config/fish/functions" ]; then
-    rm -f "$HOME/.config/fish/functions/aero.fish"
-fi
-
-
-
-
-
-# Ensure the binary is executable
-chmod +x aero
-# If /usr/local/bin/aero is running, move to temp then overwrite
-if [ -f /usr/local/bin/aero ]; then
-    mv /usr/local/bin/aero /usr/local/bin/aero.old 2>/dev/null || true
-fi
-cp aero /usr/local/bin/
-chmod +x /usr/local/bin/aero
-rm -f /usr/local/bin/aero.old 2>/dev/null || true
-
-# Copy app-list.txt to a shared location, or create a default one if missing
-sudo mkdir -p /usr/local/share/aero
+# Copy app-list.txt to /aero, or create a default one if missing
 if [ -f ../app-list.txt ]; then
-    sudo cp ../app-list.txt /usr/local/share/aero/app-list.txt
+    cp ../app-list.txt /aero/app-list.txt
 elif [ -f app-list.txt ]; then
-    sudo cp app-list.txt /usr/local/share/aero/app-list.txt
-elif [ ! -f /usr/local/share/aero/app-list.txt ]; then
-    sudo tee /usr/local/share/aero/app-list.txt > /dev/null <<EOF
+    cp app-list.txt /aero/app-list.txt
+elif [ ! -f /aero/app-list.txt ]; then
+    tee /aero/app-list.txt > /dev/null <<EOF
 {"settings": {
   "nav_mode": "letters",
   "app_fg": "cyan",
@@ -104,43 +59,44 @@ elif [ ! -f /usr/local/share/aero/app-list.txt ]; then
 EOF
 fi
 
-# Ensure /usr/local/bin is in PATH and create an alias for all users and shells
+# Install Aero's built-in pkm-main as the Package Manager
+if [ -d "$PWD/pkm-main" ]; then
+    mkdir -p /aero/pkm-main
+    cp -r "$PWD/pkm-main/"* /aero/pkm-main/
+    chmod +x /aero/pkm-main/pkm
+    ln -sf /aero/pkm-main/pkm /aero/pkm
+else
+    echo "Warning: pkm-main folder not found in workspace, skipping built-in package manager install."
+fi
+
+# Remove any existing aliases for 'aero' in common shell config files
 for shellrc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_profile"; do
     if [ -f "$shellrc" ]; then
-        if ! grep -q '/usr/local/bin' "$shellrc"; then
-            echo 'export PATH="/usr/local/bin:$PATH"' >> "$shellrc"
-        fi
-        # Add alias for aero if not present
-        if ! grep -q 'alias aero=' "$shellrc"; then
-            echo 'alias aero="/usr/local/bin/aero"' >> "$shellrc"
-        fi
+        sed -i.bak '/alias[[:space:]]\+aero=/d' "$shellrc" 2>/dev/null || true
+        rm -f "$shellrc.bak"
+        echo 'alias aero="/aero/aero"' >> "$shellrc"
     fi
 done
 
+# Remove any existing fish function for aero
+if [ -d "$HOME/.config/fish/functions" ]; then
+    rm -f "$HOME/.config/fish/functions/aero.fish"
+    echo -e "function aero\n    /aero/aero\nend" > "$HOME/.config/fish/functions/aero.fish"
+fi
 
-# For fish shell
+# For fish shell PATH
 if [ -d "$HOME/.config/fish" ]; then
-    # Add PATH and alias to config.fish if not present
-    if ! grep -q '/usr/local/bin' "$HOME/.config/fish/config.fish" 2>/dev/null; then
-        echo 'set -gx PATH /usr/local/bin $PATH' >> "$HOME/.config/fish/config.fish"
-    fi
-    if ! grep -q 'function aero' "$HOME/.config/fish/config.fish" 2>/dev/null; then
-        echo 'function aero; /usr/local/bin/aero $argv; end' >> "$HOME/.config/fish/config.fish"
+    if ! grep -q '/aero' "$HOME/.config/fish/config.fish" 2>/dev/null; then
+        echo 'set -gx PATH /aero $PATH' >> "$HOME/.config/fish/config.fish"
     fi
 fi
 
 echo
-echo "Aero installed! You may need to open a new terminal window for the command to work."
-echo 'If you still see "Unknown Command: aero", log out and back in, or run: export PATH="/usr/local/bin:$PATH"'
+ls -l /aero
+ls -l /aero/app-list.txt || true
+ls -l /aero/aero || true
 echo
-echo "Troubleshooting:"
-echo "- If you see 'Failed to load app-list.txt':"
-echo "    1. Make sure /usr/local/share/aero/app-list.txt exists:"
-echo "         ls -l /usr/local/share/aero/app-list.txt"
-echo "    2. If missing, re-run the installer."
-echo "    3. Make sure you are running the latest aero binary:"
-echo "         which aero"
-echo "         ls -l /usr/local/bin/aero"
-echo "    4. If you built manually, run:"
-echo "         cd /Users/holden/aero/src && make && sudo cp aero /usr/local/bin/"
-echo "    5. Try running 'aero' from your home directory."
+
+echo "Aero installed in /aero! You may need to open a new terminal window for the command to work."
+echo 'If you still see "Unknown Command: aero", log out and back in, or run: export PATH="/aero:$PATH"'
+echo
