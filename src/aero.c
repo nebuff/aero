@@ -267,21 +267,24 @@ void save_settings(const char *filename) {
 
 
 int main() {
+    char user_app_list[512];
+    snprintf(user_app_list, sizeof(user_app_list), "%s/.config/aero/app-list.txt", getenv("HOME"));
     const char *applist_paths[] = {
         getenv("AERO_APP_LIST") ? getenv("AERO_APP_LIST") : NULL,
+        user_app_list,
         "./app-list.txt",
         "../app-list.txt",
         "/usr/local/share/aero/app-list.txt"
     };
     int applist_idx = -1;
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 5; ++i) {
         if (applist_paths[i] && load_apps(applist_paths[i])) {
             applist_idx = i;
             break;
         }
     }
     if (applist_idx == -1) {
-        fprintf(stderr, "\nERROR: No app-list.txt found!\n\nSearched:\n  $AERO_APP_LIST\n  ./app-list.txt\n  ../app-list.txt\n  /usr/local/share/aero/app-list.txt\n\nTry re-running the installer or set the AERO_APP_LIST environment variable.\n");
+        fprintf(stderr, "\nERROR: No app-list.txt found!\n\nSearched:\n  $AERO_APP_LIST\n  ~/.config/aero/app-list.txt\n  ./app-list.txt\n  ../app-list.txt\n  /usr/local/share/aero/app-list.txt\n\nTry re-running the installer or set the AERO_APP_LIST environment variable.\n");
         return 1;
     }
     initscr();
@@ -338,8 +341,25 @@ int main() {
                         initscr();
                     } else if (settings_highlight == 1) {
                         endwin();
-                        printf("Opening app-list.txt in nano...\n");
-                        system("sudo nano /usr/local/share/aero/app-list.txt");
+                        // If user config doesn't exist, copy from system default
+                        FILE *f = fopen(user_app_list, "r");
+                        if (!f) {
+                            FILE *src = fopen("/usr/local/share/aero/app-list.txt", "r");
+                            FILE *dst = fopen(user_app_list, "w");
+                            if (src && dst) {
+                                char buf[4096];
+                                size_t n;
+                                while ((n = fread(buf, 1, sizeof(buf), src)) > 0) fwrite(buf, 1, n, dst);
+                                fclose(src);
+                                fclose(dst);
+                            }
+                        } else {
+                            fclose(f);
+                        }
+                        printf("Opening ~/.config/aero/app-list.txt in nano...\n");
+                        char cmd[600];
+                        snprintf(cmd, sizeof(cmd), "mkdir -p $HOME/.config/aero && nano %s", user_app_list);
+                        system(cmd);
                         printf("Press Enter to continue...");
                         getchar();
                         initscr();
