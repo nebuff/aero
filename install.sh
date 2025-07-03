@@ -62,13 +62,14 @@ chmod +x aero
 sudo cp aero /usr/local/bin/
 sudo chmod +x /usr/local/bin/aero
 
-# Copy app-list.txt to a shared location
+# Copy app-list.txt to a shared location, or create an empty one if missing
+sudo mkdir -p /usr/local/share/aero
 if [ -f ../app-list.txt ]; then
-    sudo mkdir -p /usr/local/share/aero
     sudo cp ../app-list.txt /usr/local/share/aero/app-list.txt
 elif [ -f app-list.txt ]; then
-    sudo mkdir -p /usr/local/share/aero
     sudo cp app-list.txt /usr/local/share/aero/app-list.txt
+elif [ ! -f /usr/local/share/aero/app-list.txt ]; then
+    echo '[]' | sudo tee /usr/local/share/aero/app-list.txt > /dev/null
 fi
 
 # Ensure /usr/local/bin is in PATH and create an alias for all users and shells
