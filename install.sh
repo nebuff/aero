@@ -1,11 +1,52 @@
 #!/bin/sh
 # Aero Installer Script
-# Downloads latest main.c, builds Aero, and adds 'aero' alias to common shells
+# Created by NeBuff (Holden)
+# Installs C compiler and dependencies, downloads latest main.c, builds Aero, and adds 'aero' alias to common shells
 
 REPO_URL="https://raw.githubusercontent.com/nebuff/aero/main/src/main.c"
 INSTALL_DIR="$HOME/aero"
 SRC_DIR="$INSTALL_DIR/src"
 BIN_PATH="$INSTALL_DIR/aero"
+
+# Detect OS and install C compiler if missing
+install_compiler() {
+    if command -v cc >/dev/null 2>&1 || command -v gcc >/dev/null 2>&1 || command -v clang >/dev/null 2>&1; then
+        echo "C compiler found."
+        return
+    fi
+    echo "No C compiler found. Attempting to install..."
+    UNAME=$(uname)
+    if [ "$UNAME" = "Darwin" ]; then
+        # macOS
+        if ! xcode-select -p >/dev/null 2>&1; then
+            echo "Installing Xcode Command Line Tools..."
+            xcode-select --install
+            echo "Please rerun this script after installation completes."
+            exit 1
+        fi
+    elif [ "$UNAME" = "Linux" ]; then
+        if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y build-essential
+        elif command -v dnf >/dev/null 2>&1; then
+            sudo dnf install -y gcc
+        elif command -v yum >/dev/null 2>&1; then
+            sudo yum install -y gcc
+        elif command -v pacman >/dev/null 2>&1; then
+            sudo pacman -Sy --noconfirm base-devel
+        else
+            echo "Unsupported Linux package manager. Please install gcc manually."
+            exit 1
+        fi
+    elif [ "$UNAME" = "MINGW"* ] || [ "$UNAME" = "MSYS"* ] || [ "$UNAME" = "CYGWIN"* ]; then
+        echo "Please install a C compiler (e.g., TDM-GCC or MSYS2) manually on Windows."
+        exit 1
+    else
+        echo "Unknown OS. Please install a C compiler manually."
+        exit 1
+    fi
+}
+
+install_compiler
 
 mkdir -p "$SRC_DIR"
 echo "Downloading latest Aero main.c..."
