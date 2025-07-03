@@ -301,8 +301,8 @@ ls -l "$USER_APP_LIST"
 # Ensure user app-list.txt always exists (even if deleted after install)
 if [ ! -f "$USER_APP_LIST" ]; then
     if [ -f /usr/local/share/aero/app-list.txt ]; then
-        cp /usr/local/share/aero/app-list.txt "$USER_APP_LIST"
-        chmod 600 "$USER_APP_LIST"
+        sudo cp /usr/local/share/aero/app-list.txt "$USER_APP_LIST"
+        sudo chmod 600 "$USER_APP_LIST"
         echo "Restored ~/.config/aero/app-list.txt from system fallback."
     else
         echo "ERROR: Could not create ~/.config/aero/app-list.txt. Please create it manually."
