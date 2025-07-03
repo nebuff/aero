@@ -8,7 +8,7 @@
 [
   {"name": "Text Editor", "alias": "nano"},
   {"name": "Web Browser", "alias": "lynx"},
-  {"name": "Terminal", "alias": "bash"},
+  {"name": "Terminal", "alias": "fish"},
   {"name": "File Manager", "alias": "mc"},
   {"name": "Music Player", "alias": "cmus"},
   {"name": "Video Player", "alias": "mpv"},
