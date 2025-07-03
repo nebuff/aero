@@ -2,7 +2,7 @@
 # Aero Installer Script
 # Installs C compiler and dependencies, downloads latest main.c and components, builds Aero, and adds 'aero' alias to common shells
 
-REPO_URL="https://raw.githubusercontent.com/nebuff/aero/main/src/main.c"
+REPO_URL="https://raw.githubusercontent.com/nebuff/aero/73ed7534a6e863b87eda16f6bbb7a4f753ad475d/main.c"
 COMPONENTS_URL="https://github.com/nebuff/aero/archive/refs/heads/main.zip"
 INSTALL_DIR="$HOME/aero"
 SRC_DIR="$INSTALL_DIR/src"
@@ -50,8 +50,12 @@ install_compiler() {
 install_compiler
 
 mkdir -p "$SRC_DIR"
-echo "Downloading latest Aero main.c..."
+echo "Downloading Aero main.c..."
 curl -fsSL "$REPO_URL" -o "$SRC_DIR/main.c"
+if [ ! -f "$SRC_DIR/main.c" ]; then
+    echo "Failed to download main.c from $REPO_URL"
+    exit 1
+fi
 
 # Download and extract components
 mkdir -p "$COMPONENTS_DIR"
