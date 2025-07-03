@@ -286,10 +286,15 @@ elif [ ! -f "$USER_APP_LIST" ]; then
     echo "Fetching default app-list.txt from Aero repository..."
     curl -fsSL https://raw.githubusercontent.com/nebuff/aero/main/app-list.txt -o "$USER_APP_LIST"
 fi
+# Ensure the user app-list.txt is readable and writable
+chmod 600 "$USER_APP_LIST"
 # Also install to /usr/local/share/aero/app-list.txt for system fallback
 sudo mkdir -p /usr/local/share/aero
 sudo cp "$USER_APP_LIST" /usr/local/share/aero/app-list.txt
 sudo chmod a+rw /usr/local/share/aero/app-list.txt
+echo "\nAero app-list.txt created at: $USER_APP_LIST"
+echo "You can edit your app list with: nano $USER_APP_LIST"
+ls -l "$USER_APP_LIST"
 
 # Ensure /usr/local/bin is in PATH and create an alias for all users and shells
 for shellrc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_profile"; do
