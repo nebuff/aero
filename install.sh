@@ -19,7 +19,10 @@ fi
 # Aero Installer Script
 set -e
 
-
+# Ensure /aero exists at the very start
+if [ ! -d /aero ]; then
+    mkdir -p /aero
+fi
 
 
 # Detect OS and install ncurses/curl/git/build tools if needed
