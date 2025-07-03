@@ -220,7 +220,7 @@ void draw_menu(int highlight, bool in_settings) {
 }
 
 
-// Save nav_mode setting to app-list.txt (preserves apps, rewrites settings)
+// Save nav_mode and color settings to app-list.txt (preserves apps, rewrites settings)
 void save_settings(const char *filename) {
     FILE *f = fopen(filename, "r");
     if (!f) return;
@@ -233,7 +233,13 @@ void save_settings(const char *filename) {
     if (!apps_start) return;
     FILE *out = fopen(filename, "w");
     if (!out) return;
-    fprintf(out, "{\"settings\":{\"nav_mode\":\"%s\"}},\n", aero_settings.nav_mode);
+    fprintf(out,
+        "{\"settings\":{\"nav_mode\":\"%s\",\"app_fg\":\"%s\",\"app_bg\":\"%s\",\"sel_fg\":\"%s\",\"sel_bg\":\"%s\"}},\n",
+        aero_settings.nav_mode,
+        aero_settings.app_fg,
+        aero_settings.app_bg,
+        aero_settings.sel_fg,
+        aero_settings.sel_bg);
     fputs(apps_start, out);
     fclose(out);
 }
