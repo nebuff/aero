@@ -17,7 +17,8 @@
   {"name": "Image Viewer", "alias": "fim"},
   {"name": "Calculator", "alias": "bc"},
   {"name": "Notes", "alias": "nano ~/notes.txt"},
-  {"name": "Resource Monitor", "alias": "htop"}
-  {"name": "NeoFetch", "alias", "neofetch"}
-  {"name": "Pride Flag", "alias", "cli-pride-flags"}
+  {"name": "Resource Monitor", "alias": "htop"},
+  {"name": "NeoFetch", "alias": "neofetch"},
+  {"name": "Pride Flag", "alias": "cli-pride-flags"},
+  {"name": "Discord", "alias": "discordo"}
 ]
