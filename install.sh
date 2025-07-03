@@ -74,11 +74,16 @@ for shellrc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_prof
     fi
 done
 
+
 # For fish shell
 if [ -d "$HOME/.config/fish" ]; then
-    mkdir -p "$HOME/.config/fish/conf.d"
-    echo 'set -gx PATH /usr/local/bin $PATH' > "$HOME/.config/fish/conf.d/aero_path.fish"
-    echo 'function aero; /usr/local/bin/aero $argv; end' > "$HOME/.config/fish/functions/aero.fish"
+    # Add PATH and alias to config.fish if not present
+    if ! grep -q '/usr/local/bin' "$HOME/.config/fish/config.fish" 2>/dev/null; then
+        echo 'set -gx PATH /usr/local/bin $PATH' >> "$HOME/.config/fish/config.fish"
+    fi
+    if ! grep -q 'function aero' "$HOME/.config/fish/config.fish" 2>/dev/null; then
+        echo 'function aero; /usr/local/bin/aero $argv; end' >> "$HOME/.config/fish/config.fish"
+    fi
 fi
 
 echo 'If you still see "Unknown Command: aero", log out and back in, or run: export PATH="/usr/local/bin:$PATH"'
