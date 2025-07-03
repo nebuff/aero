@@ -9,23 +9,23 @@ set -e
 # Detect OS and install ncurses/curl/git/build tools if needed
 if command -v apt-get >/dev/null 2>&1; then
     sudo apt-get update
-    sudo apt-get install -y build-essential libncurses5-dev curl git nano
+    sudo apt-get install -y build-essential libncurses5-dev curl git nano fish
 elif command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y ncurses-devel gcc make curl git nano
+    sudo dnf install -y ncurses-devel gcc make curl git nano fish
 elif command -v yum >/dev/null 2>&1; then
-    sudo yum install -y ncurses-devel gcc make curl git nano
+    sudo yum install -y ncurses-devel gcc make curl git nano fish
 elif command -v pacman >/dev/null 2>&1; then
-    sudo pacman -Sy --noconfirm ncurses base-devel curl git nano
+    sudo pacman -Sy --noconfirm ncurses base-devel curl git nano fish
 elif command -v zypper >/dev/null 2>&1; then
-    sudo zypper install -y ncurses-devel gcc make curl git nano
+    sudo zypper install -y ncurses-devel gcc make curl git nano fish
 elif command -v apk >/dev/null 2>&1; then
-    sudo apk add ncurses-dev build-base curl git nano
+    sudo apk add ncurses-dev build-base curl git nano fish
 elif command -v brew >/dev/null 2>&1; then
-    brew install ncurses git curl nano
+    brew install ncurses git curl nano fish
 elif command -v pkg >/dev/null 2>&1; then
-    sudo pkg install -y ncurses gcc gmake curl git nano
+    sudo pkg install -y ncurses gcc gmake curl git nano fish
 else
-    echo "Please install ncurses development libraries, gcc, make, curl, and git manually."
+    echo "Please install ncurses development libraries, gcc, make, curl, git, and fish manually."
     exit 1
 fi
 
