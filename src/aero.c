@@ -214,10 +214,10 @@ void draw_menu(int highlight, bool in_settings) {
                 attroff(COLOR_PAIR(1));
             }
         }
-        mvprintw(8, 4, "(Toggle and save to app-list.txt)");
+        mvprintw(8, 4, "(Toggle and save to ~/.config/aero/app-list.txt)");
         mvprintw(10, 2, "App Color: fg=%s bg=%s", aero_settings.app_fg, aero_settings.app_bg);
         mvprintw(11, 2, "Selected Color: fg=%s bg=%s", aero_settings.sel_fg, aero_settings.sel_bg);
-        mvprintw(12, 2, "Edit app-list.txt to change colors.");
+        mvprintw(12, 2, "Edit ~/.config/aero/app-list.txt to change apps/colors.");
     } else {
         mvprintw(0, 2, "Aero App Center (TUI)");
         if (strcmp(aero_settings.nav_mode, "function_keys") == 0) {
@@ -284,7 +284,7 @@ int main() {
         }
     }
     if (applist_idx == -1) {
-        fprintf(stderr, "\nERROR: No app-list.txt found!\n\nSearched:\n  $AERO_APP_LIST\n  ~/.config/aero/app-list.txt\n  ./app-list.txt\n  ../app-list.txt\n  /usr/local/share/aero/app-list.txt\n\nTry re-running the installer or set the AERO_APP_LIST environment variable.\n");
+        fprintf(stderr, "\nERROR: No app-list.txt found!\n\nAero could not find your app list.\n\nPrimary location:  ~/.config/aero/app-list.txt\nFallbacks checked:  $AERO_APP_LIST, ./app-list.txt, ../app-list.txt, /usr/local/share/aero/app-list.txt\n\nTo fix: Run the Aero installer again, or manually create ~/.config/aero/app-list.txt.\n\nEdit your app list at ~/.config/aero/app-list.txt.\n");
         return 1;
     }
     initscr();
