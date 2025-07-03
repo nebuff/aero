@@ -41,15 +41,14 @@ fi
 cd "$HOME/.aero-src/src"
 make
 
-# Install pkm (TUI package manager)
-if [ ! -d "/usr/local/share/pkm" ]; then
-    git clone https://github.com/wick3dr0se/pkm /usr/local/share/pkm
+# Install Aero's built-in pkm-main as the Package Manager
+if [ -d "$PWD/pkm-main" ]; then
+    mkdir -p /usr/local/share/pkm-main
+    cp -r "$PWD/pkm-main/"* /usr/local/share/pkm-main/
+    chmod +x /usr/local/share/pkm-main/pkm
+    ln -sf /usr/local/share/pkm-main/pkm /usr/local/bin/pkm
 else
-    cd /usr/local/share/pkm && git pull
-fi
-# Symlink pkm to /usr/local/bin if not already present
-if [ ! -f /usr/local/bin/pkm ]; then
-    ln -s /usr/local/share/pkm/pkm /usr/local/bin/pkm
+    echo "Warning: pkm-main folder not found in workspace, skipping built-in package manager install."
 fi
 
 
