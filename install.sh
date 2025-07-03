@@ -9,23 +9,23 @@ set -e
 # Detect OS and install ncurses/curl/git/build tools if needed
 if command -v apt-get >/dev/null 2>&1; then
     sudo apt-get update
-    sudo apt-get install -y build-essential libncurses5-dev curl git nano fish
+    sudo apt-get install -y build-essential libncurses5-dev curl git nano fish sudo
 elif command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y ncurses-devel gcc make curl git nano fish
+    sudo dnf install -y ncurses-devel gcc make curl git nano fish sudo
 elif command -v yum >/dev/null 2>&1; then
-    sudo yum install -y ncurses-devel gcc make curl git nano fish
+    sudo yum install -y ncurses-devel gcc make curl git nano fish sudo
 elif command -v pacman >/dev/null 2>&1; then
-    sudo pacman -Sy --noconfirm ncurses base-devel curl git nano fish
+    sudo pacman -Sy --noconfirm ncurses base-devel curl git nano fish sudo
 elif command -v zypper >/dev/null 2>&1; then
-    sudo zypper install -y ncurses-devel gcc make curl git nano fish
+    sudo zypper install -y ncurses-devel gcc make curl git nano fish sudo
 elif command -v apk >/dev/null 2>&1; then
-    sudo apk add ncurses-dev build-base curl git nano fish
+    sudo apk add ncurses-dev build-base curl git nano fish sudo
 elif command -v brew >/dev/null 2>&1; then
-    brew install ncurses git curl nano fish
+    brew install ncurses git curl nano fish sudo
 elif command -v pkg >/dev/null 2>&1; then
-    sudo pkg install -y ncurses gcc gmake curl git nano fish
+    sudo pkg install -y ncurses gcc gmake curl git nano fish sudo
 else
-    echo "Please install ncurses development libraries, gcc, make, curl, git, and fish manually."
+    echo "Please install ncurses development libraries, gcc, make, curl, git, fish, and sudo manually."
     exit 1
 fi
 
@@ -43,10 +43,10 @@ make
 
 # Install Aero's built-in pkm-main as the Package Manager
 if [ -d "$PWD/pkm-main" ]; then
-    mkdir -p /usr/local/share/pkm-main
-    cp -r "$PWD/pkm-main/"* /usr/local/share/pkm-main/
-    chmod +x /usr/local/share/pkm-main/pkm
-    ln -sf /usr/local/share/pkm-main/pkm /usr/local/bin/pkm
+    sudo mkdir -p /usr/local/share/pkm-main
+    sudo cp -r "$PWD/pkm-main/"* /usr/local/share/pkm-main/
+    sudo chmod +x /usr/local/share/pkm-main/pkm
+    sudo ln -sf /usr/local/share/pkm-main/pkm /usr/local/bin/pkm
 else
     echo "Warning: pkm-main folder not found in workspace, skipping built-in package manager install."
 fi
