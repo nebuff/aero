@@ -26,9 +26,11 @@ AeroSettings aero_settings = { .nav_mode = "letters", .app_fg = "cyan", .app_bg 
 #include <stdio.h>
 #include <stdbool.h>
 
+
 typedef struct {
     char name[APP_NAME_LEN];
     char alias[APP_ALIAS_LEN];
+    int entertoreturn; // 0 = auto return, 1 = wait for enter
 } App;
 
 App apps[MAX_APPS];
@@ -157,6 +159,19 @@ bool load_apps(const char *filename) {
         int alen = ae-a;
         strncpy(apps[app_count].alias, a, alen);
         apps[app_count].alias[alen] = 0;
+        // Look for entertoreturn (default: 0)
+        apps[app_count].entertoreturn = 0;
+        char *e = strstr(ae, "\"entertoreturn\"");
+        if (e) {
+            e = strchr(e, ':');
+            if (e) {
+                e++;
+                while (*e == ' ' || *e == '"') e++;
+                if (strncmp(e, "true", 4) == 0 || *e == '1') {
+                    apps[app_count].entertoreturn = 1;
+                }
+            }
+        }
         app_count++;
         p = ae;
     }
@@ -353,11 +368,14 @@ int main() {
                 endwin();
                 // Clear the terminal before running the application
                 system("clear");
-                printf("Launching: %s\n", apps[highlight].alias);
+                // Removed launch message
                 char cmd[APP_ALIAS_LEN + 32];
                 snprintf(cmd, sizeof(cmd), "%s", apps[highlight].alias);
                 system(cmd);
-                // Automatically return to Aero without waiting for Enter
+                if (apps[highlight].entertoreturn) {
+                    printf("\nPress Enter to return to Aero...");
+                    getchar();
+                }
                 initscr();
                 clear();
                 noecho();
