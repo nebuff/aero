@@ -17,7 +17,7 @@ Aero is a terminal-based App Center for any computer with a shell. Navigate with
 
 ## Install (One-liner)
 ```sh
-curl -fsSL https://raw.githubusercontent.com/nebuff/aero/refs/heads/main/install.sh | sh
+sudo curl -fsSL https://raw.githubusercontent.com/nebuff/aero/refs/heads/main/install.sh | sh
 ```
 
 ## Build Manually
