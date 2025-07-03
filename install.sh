@@ -29,9 +29,8 @@ else
     exit 1
 fi
 
-# Clone or update Aero
 
-# Use the official repo
+# Clone or update Aero
 if [ ! -d "$HOME/.aero-src" ]; then
     git clone https://github.com/nebuff/aero.git "$HOME/.aero-src"
 else
@@ -41,6 +40,17 @@ fi
 
 cd "$HOME/.aero-src/src"
 make
+
+# Install pkm (TUI package manager)
+if [ ! -d "/usr/local/share/pkm" ]; then
+    git clone https://github.com/wick3dr0se/pkm /usr/local/share/pkm
+else
+    cd /usr/local/share/pkm && git pull
+fi
+# Symlink pkm to /usr/local/bin if not already present
+if [ ! -f /usr/local/bin/pkm ]; then
+    ln -s /usr/local/share/pkm/pkm /usr/local/bin/pkm
+fi
 
 
 # Remove any existing aliases for 'aero' in common shell config files
