@@ -6,15 +6,17 @@
   "sel_bg": "yellow"
 }},
 [
-  {"name": "Package Manager", "alias": "pkm"},
+  {"name": "Package Manager (Q to Quit)", "alias": "pkm"},
+  {"name": "NPM Package Manager", "alias": "npm"},
   {"name": "Text Editor", "alias": "nano"},
   {"name": "Web Browser", "alias": "lynx"},
-  {"name": "Terminal", "alias": "fish"},
-  {"name": "File Manager", "alias": "mc"},
+  {"name": "Terminal", "alias": "bash"},
+  {"name": "File Manager", "alias": "ranger"},
   {"name": "Music Player", "alias": "cmus"},
   {"name": "Video Player", "alias": "mpv"},
   {"name": "Image Viewer", "alias": "fim"},
   {"name": "Calculator", "alias": "bc"},
   {"name": "Notes", "alias": "nano ~/notes.txt"},
   {"name": "Resource Monitor", "alias": "htop"}
+  {"name": "NeoFetch", "alias": "neofetch"}
 ]
