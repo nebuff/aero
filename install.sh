@@ -1,3 +1,19 @@
+# Install Discordo (TUI Discord client)
+if ! command -v discordo >/dev/null 2>&1; then
+    echo "Installing Discordo..."
+    if command -v go >/dev/null 2>&1; then
+        git clone https://github.com/ayn2op/discordo /tmp/discordo-inst
+        cd /tmp/discordo-inst
+        go build .
+        sudo mv discordo /usr/local/bin/
+        cd ..
+        rm -rf /tmp/discordo-inst
+    else
+        echo "Go is not installed. Please install Go to use Discordo."
+    fi
+else
+    echo "Discordo already installed."
+fi
 #!/bin/sh
 
 # Aero Installer Script
