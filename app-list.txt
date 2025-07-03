@@ -1,11 +1,12 @@
 {"settings": {
-  "nav_mode": "letters",
+  "nav_mode": "function_keys",
   "app_fg": "cyan",
   "app_bg": "black",
   "sel_fg": "black",
   "sel_bg": "yellow"
 }},
 [
+  {"name": "Package Manager", "alias": "pkm"},
   {"name": "Text Editor", "alias": "nano"},
   {"name": "Web Browser", "alias": "lynx"},
   {"name": "Terminal", "alias": "fish"},
