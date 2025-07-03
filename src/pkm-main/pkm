@@ -1,0 +1,45 @@
+#!/bin/bash
+
+. ./src/common.sh
+
+trap 'exit' INT
+trap deinit_term EXIT
+
+if hash pacman; then
+    . ./src/pacman.sh
+elif hash apt; then
+    . ./src/apt.sh
+elif hash dnf; then
+    . ./src/dnf.sh
+elif hash zypper; then
+    . ./src/zypper.sh
+fi
+
+opers=(
+    'Info'
+    'Query'
+    'Install'
+    'Delete'
+    'List Installed'
+)
+
+init_term
+_update
+_draw "${opers[@]}"
+
+for((;;)) {
+    _ibar '[>] do'
+    hover_interface opers
+
+    [[ $REPLY =~ ^''$|^'[C'$|^[lLdD]$ ]]&& {
+        case ${opers[cursor-LINES]} in
+            "${opers[0]}") _info;;
+            "${opers[1]}") _query;;
+            "${opers[2]}") _install;;
+            "${opers[3]}") _delete;;
+            "${opers[4]}") list_installed;;
+        esac
+        
+        _draw "${opers[@]}"
+    }
+}
