@@ -267,19 +267,20 @@ void save_settings(const char *filename) {
 
 
 int main() {
-    const char *applist_paths[] = {"../app-list.txt", "app-list.txt", "/usr/local/share/aero/app-list.txt"};
+    // Only use /aero/app-list.txt for all Aero data/configs
+    const char *applist_paths[] = {"/aero/app-list.txt"};
     int applist_idx = -1;
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 1; ++i) {
         if (load_apps(applist_paths[i])) {
             applist_idx = i;
             break;
         }
     }
     if (applist_idx == -1) {
-        printf("No app-list.txt found!\n\n");
-        printf("To add apps, edit /usr/local/share/aero/app-list.txt and add entries like:\n");
+        printf("No /aero/app-list.txt found!\n\n");
+        printf("To add apps, edit /aero/app-list.txt and add entries like:\n");
         printf("  [\n    {\"name\": \"Text Editor\", \"alias\": \"nano\" }\n  ]\n");
-        printf("You can use any text editor, e.g. 'sudo nano /usr/local/share/aero/app-list.txt'\n");
+        printf("You can use any text editor, e.g. 'nano /aero/app-list.txt'\n");
         return 1;
     }
     initscr();
@@ -337,7 +338,7 @@ int main() {
                     } else if (settings_highlight == 1) {
                         endwin();
                         printf("Opening app-list.txt in nano...\n");
-                        system("sudo nano /usr/local/share/aero/app-list.txt");
+                        system("nano /aero/app-list.txt");
                         printf("Press Enter to continue...");
                         getchar();
                         initscr();
