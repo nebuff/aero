@@ -5,12 +5,36 @@
 #include <unistd.h>
 
 int main() {
-    printf("Welcome to Aero Shell!\n");
+    const char *AERO_VERSION = "0.1.0";
+    printf("Welcome to Aero Shell! (v%s)\n", AERO_VERSION);
     printf("Type 'help' to see available commands. Type 'exit' to quit.\n");
     char input[256];
     char cwd[1024];
+    char components_path[512] = "";
+    // Try $HOME/aero/components first, then ./components
+    const char *home = getenv("HOME");
+    if (home) {
+        snprintf(components_path, sizeof(components_path), "%s/aero/components", home);
+    } else {
+        strcpy(components_path, "./components");
+    }
+    // Load custom prompt if set
+    char prompt[256] = "";
+    char *prompt_ptr = NULL;
+    FILE *pf = fopen("$HOME/.config/aero/prompt.conf", "r");
+    if (!pf) pf = fopen("/Users/holden/.config/aero/prompt.conf", "r"); // fallback for dev
+    if (pf) {
+        if (fgets(prompt, sizeof(prompt), pf)) {
+            char *nl = strchr(prompt, '\n');
+            if (nl) *nl = 0;
+            prompt_ptr = prompt;
+        }
+        fclose(pf);
+    }
     while (1) {
-        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        if (prompt_ptr && strlen(prompt_ptr) > 0) {
+            printf("%s", prompt_ptr);
+        } else if (getcwd(cwd, sizeof(cwd)) != NULL) {
             printf("aero:%s$ ", cwd);
         } else {
             printf("aero$ ");
@@ -92,7 +116,22 @@ int main() {
             continue;
         }
         if (strcmp(input, "list") == 0) {
-            system("ls ../components");
+            char cmd[600];
+            snprintf(cmd, sizeof(cmd), "ls '%s'", components_path);
+            int ret = system(cmd);
+            if (ret != 0) printf("No components directory found at %s\n", components_path);
+            continue;
+        }
+        if (strcmp(input, "update") == 0) {
+            printf("Updating Aero...\n");
+            char update_cmd[1024];
+            snprintf(update_cmd, sizeof(update_cmd), "curl -fsSL https://raw.githubusercontent.com/nebuff/aero/main/install.sh | sh");
+            int ret = system(update_cmd);
+            if (ret == 0) {
+                printf("Aero updated! Please restart your shell.\n");
+            } else {
+                printf("Aero update failed.\n");
+            }
             continue;
         }
         if (strncmp(input, "run ", 4) == 0) {
