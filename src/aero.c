@@ -81,8 +81,13 @@ void draw_menu(int highlight, bool in_settings) {
 }
 
 int main() {
-    if (!load_apps("../app-list.txt") && !load_apps("app-list.txt")) {
-        printf("Failed to load app-list.txt\n");
+    if (!load_apps("../app-list.txt") &&
+        !load_apps("app-list.txt") &&
+        !load_apps("/usr/local/share/aero/app-list.txt")) {
+        printf("No app-list.txt found!\n\n");
+        printf("To add apps, edit /usr/local/share/aero/app-list.txt and add entries like:\n");
+        printf("  [\n    {\"name\": \"Text Editor\", \"alias\": \"nano\" }\n  ]\n");
+        printf("You can use any text editor, e.g. 'sudo nano /usr/local/share/aero/app-list.txt'\n");
         return 1;
     }
     initscr();
