@@ -3,7 +3,7 @@
 # Installs C compiler and dependencies, downloads latest main.c and components, builds Aero, and adds 'aero' alias to common shells
 
 REPO_URL="https://raw.githubusercontent.com/nebuff/aero/73ed7534a6e863b87eda16f6bbb7a4f753ad475d/main.c"
-COMPONENTS_URL="https://github.com/nebuff/aero/archive/refs/heads/main.zip"
+COMPONENTS_URL="https://github.com/nebuff/aero/raw/refs/heads/main/components.zip"
 INSTALL_DIR="$HOME/aero"
 SRC_DIR="$INSTALL_DIR/src"
 COMPONENTS_DIR="$INSTALL_DIR/components"
