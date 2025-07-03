@@ -282,7 +282,9 @@ if [ -f ../app-list.txt ]; then
     cp ../app-list.txt "$USER_APP_LIST"
 elif [ -f app-list.txt ]; then
     cp app-list.txt "$USER_APP_LIST"
-elif [ ! -f "$USER_APP_LIST" ]; then
+fi
+# If user app-list.txt still does not exist, fetch from repo
+if [ ! -f "$USER_APP_LIST" ]; then
     echo "Fetching default app-list.txt from Aero repository..."
     curl -fsSL https://raw.githubusercontent.com/nebuff/aero/main/app-list.txt -o "$USER_APP_LIST"
 fi
@@ -295,6 +297,17 @@ sudo chmod a+rw /usr/local/share/aero/app-list.txt
 echo "\nAero app-list.txt created at: $USER_APP_LIST"
 echo "You can edit your app list with: nano $USER_APP_LIST"
 ls -l "$USER_APP_LIST"
+
+# Ensure user app-list.txt always exists (even if deleted after install)
+if [ ! -f "$USER_APP_LIST" ]; then
+    if [ -f /usr/local/share/aero/app-list.txt ]; then
+        cp /usr/local/share/aero/app-list.txt "$USER_APP_LIST"
+        chmod 600 "$USER_APP_LIST"
+        echo "Restored ~/.config/aero/app-list.txt from system fallback."
+    else
+        echo "ERROR: Could not create ~/.config/aero/app-list.txt. Please create it manually."
+    fi
+fi
 
 # Ensure /usr/local/bin is in PATH and create an alias for all users and shells
 for shellrc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_profile"; do
