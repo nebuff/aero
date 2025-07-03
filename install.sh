@@ -3,11 +3,7 @@
 # Aero Installer Script
 set -e
 
-# Relaunch with sudo if not root
-if [ "$(id -u)" -ne 0 ]; then
-    echo "[Aero Installer] Re-running with sudo..."
-    exec sudo "$0" "$@"
-fi
+
 
 
 # Detect OS and install ncurses/curl/git/build tools if needed
