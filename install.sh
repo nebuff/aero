@@ -35,8 +35,49 @@ else
     cd "$HOME/.aero-src"
     git pull
 fi
+
 cd "$HOME/.aero-src/src"
 make
-sudo cp aero /usr/local/bin/
+
+
+# Remove any existing aliases for 'aero' in common shell config files
+for shellrc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_profile"; do
+    if [ -f "$shellrc" ]; then
+        sed -i.bak '/alias[[:space:]]\+aero=/d' "$shellrc" 2>/dev/null || true
+        rm -f "$shellrc.bak"
+    fi
+done
+
+# Remove any existing fish function for aero
+if [ -d "$HOME/.config/fish/functions" ]; then
+    rm -f "$HOME/.config/fish/functions/aero.fish"
+fi
 
 echo "\nAero installed! Run 'aero' to start."
+
+sudo cp aero /usr/local/bin/
+
+echo '\nAero installed! You may need to open a new terminal window for the command to work.'
+# Ensure /usr/local/bin is in PATH and create an alias for all users and shells
+for shellrc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.profile" "$HOME/.bash_profile"; do
+    if [ -f "$shellrc" ]; then
+        if ! grep -q '/usr/local/bin' "$shellrc"; then
+            echo 'export PATH="/usr/local/bin:$PATH"' >> "$shellrc"
+        fi
+        # Add alias for aero if not present
+        if ! grep -q 'alias aero=' "$shellrc"; then
+            echo 'alias aero="/usr/local/bin/aero"' >> "$shellrc"
+        fi
+    fi
+done
+
+# For fish shell
+if [ -d "$HOME/.config/fish" ]; then
+    mkdir -p "$HOME/.config/fish/conf.d"
+    echo 'set -gx PATH /usr/local/bin $PATH' > "$HOME/.config/fish/conf.d/aero_path.fish"
+    echo 'function aero; /usr/local/bin/aero $argv; end' > "$HOME/.config/fish/functions/aero.fish"
+fi
+
+echo 'If you still see "Unknown Command: aero", log out and back in, or run: export PATH="/usr/local/bin:$PATH"'
+echo "Aero installed! You may need to open a new terminal window for the command to work."
+echo 'If you still see "Unknown Command: aero", log out and back in, or run: export PATH="/usr/local/bin:$PATH"'
