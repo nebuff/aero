@@ -1,6 +1,7 @@
 #include <unistd.h>
+#include <dirent.h>
 
-// Battery monitor for Linux/macOS
+// Battery monitor for Linux/macOS (robust for BAT0/BAT1/etc)
 int get_battery_percent() {
 #ifdef __APPLE__
     FILE *fp = popen("pmset -g batt | grep -o '[0-9]*%' | head -n1 | tr -d '%'", "r");
@@ -15,7 +16,22 @@ int get_battery_percent() {
     if (percent < 0 || percent > 100) return -1;
     return percent;
 #else
-    FILE *f = fopen("/sys/class/power_supply/BAT0/capacity", "r");
+    // Look for any BAT* directory
+    DIR *d = opendir("/sys/class/power_supply");
+    if (!d) return -1;
+    struct dirent *ent;
+    char batpath[256];
+    int found = 0;
+    while ((ent = readdir(d))) {
+        if (strncmp(ent->d_name, "BAT", 3) == 0) {
+            snprintf(batpath, sizeof(batpath), "/sys/class/power_supply/%s/capacity", ent->d_name);
+            found = 1;
+            break;
+        }
+    }
+    closedir(d);
+    if (!found) return -1;
+    FILE *f = fopen(batpath, "r");
     if (!f) return -1;
     int percent = -1;
     if (fscanf(f, "%d", &percent) != 1) percent = -1;
