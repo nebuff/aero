@@ -1,3 +1,29 @@
+#include <unistd.h>
+
+// Battery monitor for Linux/macOS
+int get_battery_percent() {
+#ifdef __APPLE__
+    FILE *fp = popen("pmset -g batt | grep -o '[0-9]*%' | head -n1 | tr -d '%'", "r");
+    if (!fp) return -1;
+    char buf[8];
+    if (!fgets(buf, sizeof(buf), fp)) {
+        pclose(fp);
+        return -1;
+    }
+    pclose(fp);
+    int percent = atoi(buf);
+    if (percent < 0 || percent > 100) return -1;
+    return percent;
+#else
+    FILE *f = fopen("/sys/class/power_supply/BAT0/capacity", "r");
+    if (!f) return -1;
+    int percent = -1;
+    if (fscanf(f, "%d", &percent) != 1) percent = -1;
+    fclose(f);
+    if (percent < 0 || percent > 100) return -1;
+    return percent;
+#endif
+}
 #include <ncurses.h>
 #include <stdlib.h>
 #include <string.h>
@@ -188,8 +214,15 @@ void draw_menu(int highlight, bool in_settings, int scroll_offset) {
     getmaxyx(stdscr, max_y, max_x);
     int header_lines = in_settings ? 13 : 2;
     int visible_lines = max_y - header_lines;
+    int battery = get_battery_percent();
+    char header[128];
+    if (battery >= 0) {
+        snprintf(header, sizeof(header), "Aero App Center (TUI) | Battery: %d%%", battery);
+    } else {
+        snprintf(header, sizeof(header), "Aero App Center (TUI)");
+    }
     if (in_settings) {
-        mvprintw(0, 2, "Aero Settings");
+        mvprintw(0, 2, "%s", header);
         mvprintw(1, 2, "Use arrow keys, Enter to select, q to return.");
         if (highlight == 0) attron(COLOR_PAIR(3));
         mvprintw(3, 4, "Update Aero");
@@ -208,7 +241,7 @@ void draw_menu(int highlight, bool in_settings, int scroll_offset) {
         mvprintw(11, 2, "Selected Color: fg=%s bg=%s", aero_settings.sel_fg, aero_settings.sel_bg);
         mvprintw(12, 2, "Edit app-list.txt to change colors.");
     } else {
-        mvprintw(0, 2, "Aero App Center (TUI)");
+        mvprintw(0, 2, "%s", header);
         if (strcmp(aero_settings.nav_mode, "function_keys") == 0) {
             mvprintw(1, 2, "F1: Quit, F2: Settings, arrows to navigate, Enter to select");
         } else {
