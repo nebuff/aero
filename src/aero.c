@@ -323,8 +323,8 @@ int main() {
                         initscr();
                     } else if (settings_highlight == 1) {
                         endwin();
-                        printf("Opening app-list.txt in nano...\n");
-                        system("sudo nano /usr/local/share/aero/app-list.txt");
+                        printf("Opening app-list.txt in nano (sudo)...\n");
+                        system("sudo nano /aero/app-list.txt");
                         printf("Press Enter to continue...");
                         getchar();
                         initscr();
