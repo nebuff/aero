@@ -238,16 +238,31 @@ void draw_menu(int highlight, bool in_settings, int scroll_offset) {
 
 void save_settings(const char *filename) {
     FILE *f = fopen(filename, "r");
-    if (!f) return;
+    if (!f) {
+        mvprintw(0, 0, "[Aero] Error: Cannot open %s for reading.", filename);
+        getch();
+        return;
+    }
     char buf[4096];
     size_t len = fread(buf, 1, sizeof(buf)-1, f);
     buf[len] = 0;
     fclose(f);
     // Remove any old settings object
     char *apps_start = strchr(buf, '[');
-    if (!apps_start) return;
+    if (!apps_start) {
+        mvprintw(0, 0, "[Aero] Error: Malformed app-list.txt (no app array).\n");
+        getch();
+        return;
+    }
     FILE *out = fopen(filename, "w");
-    if (!out) return;
+    if (!out) {
+        clear();
+        mvprintw(0, 0, "[Aero] Error: Cannot write to %s.\nSettings not saved.\nRun Aero as root or edit with sudo.", filename);
+        mvprintw(2, 0, "Press any key to continue...");
+        refresh();
+        getch();
+        return;
+    }
     fprintf(out, "{\"settings\":{\"nav_mode\":\"%s\"}},\n", aero_settings.nav_mode);
     fputs(apps_start, out);
     fclose(out);
