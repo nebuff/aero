@@ -4,7 +4,7 @@
 
 
 
-#define MAX_APPS 16
+#define MAX_APPS 256
 #define APP_NAME_LEN 64
 #define APP_ALIAS_LEN 128
 
@@ -134,8 +134,11 @@ bool load_apps(const char *filename) {
             }
         }
     }
-    // Parse apps as before
-    p = buf;
+    // Parse apps array robustly
+    // Find the start of the array
+    char *array_start = strchr(buf, '[');
+    if (!array_start) return app_count > 0;
+    p = array_start;
     while ((p = strstr(p, "{\"name\"")) && app_count < MAX_APPS) {
         char *n = strstr(p, ":");
         if (!n) break;
@@ -144,8 +147,8 @@ bool load_apps(const char *filename) {
         char *ne = strchr(n, '"');
         if (!ne) break;
         int nlen = ne-n;
-        strncpy(apps[app_count].name, n, nlen);
-        apps[app_count].name[nlen] = 0;
+        strncpy(apps[app_count].name, n, nlen > APP_NAME_LEN-1 ? APP_NAME_LEN-1 : nlen);
+        apps[app_count].name[nlen > APP_NAME_LEN-1 ? APP_NAME_LEN-1 : nlen] = 0;
         char *a = strstr(ne, "\"alias\"");
         if (!a) break;
         a = strchr(a, ':');
@@ -155,10 +158,13 @@ bool load_apps(const char *filename) {
         char *ae = strchr(a, '"');
         if (!ae) break;
         int alen = ae-a;
-        strncpy(apps[app_count].alias, a, alen);
-        apps[app_count].alias[alen] = 0;
+        strncpy(apps[app_count].alias, a, alen > APP_ALIAS_LEN-1 ? APP_ALIAS_LEN-1 : alen);
+        apps[app_count].alias[alen > APP_ALIAS_LEN-1 ? APP_ALIAS_LEN-1 : alen] = 0;
         app_count++;
-        p = ae;
+        // Move p to after this app object
+        p = strchr(ae, '}');
+        if (!p) break;
+        p++;
     }
     return app_count > 0;
 }
