@@ -1,87 +1,161 @@
-# Aero App Center (TUI)
+# Aero
 
-Aero is a terminal-based App Center for any computer with a shell. **All Aero data, configs, binaries, and package manager are stored in `/aero` on your drive.** Navigate with arrow keys, select with Enter, and quit with 'q'.
+Aero is a simple, extensible, and colorful command shell for macOS and Linux, written in Python.  
+It supports plugins, user configuration, and a friendly installer.
 
+https://github.com/nebuff/aero/releases/download/Installer/install.sh
+
+---
 
 ## Features
-- TUI interface (ncurses)
-- App browsing and selection
-- Minimal dependencies
-- Easy install via curl
-- Auto-installs popular terminal apps and utilities (htop, nano, cmus, mpv, ranger, neofetch, btop, ncdu, lsd, bat, exa, fzf, ripgrep, fd, jq, tree, tldr, curl, wget, unzip, zip, etc.)
-- Built-in package manager (pkm, stored in `/aero/pkm-main`)
-- NPM support (installs npm and cli-pride-flags)
-- Discord (TUI) client (Discordo, if Go is installed)
-- Color and navigation customization
 
+- Basic shell commands: `ls`, `cd`, `mkdir`, `exit`, `quit`
+- Plugin system: install, list, and delete plugins
+- Colorful prompt and output (fully configurable)
+- User configuration: username, color settings, and more
+- Easy installation with our Installer
+- Easy Updating with the handy Updater Plugin!
 
-## Install (One-liner)
-```sh
-curl -fsSL https://raw.githubusercontent.com/nebuff/aero/refs/heads/main/install.sh | sh
-```
+---
 
-## Build Manually
-```sh
-# Install dependencies
-sudo apt-get install libncurses5-dev git curl build-essential  # or: brew install ncurses git curl on macOS
+## Installation
 
-# Clone and build
-git clone https://github.com/nebuff/aero.git
-cd aero/src
-make
-cp aero /aero/aero
-```
+1. **Install**
+
+   - Download the install.sh script from the Repo
+
+   > Click on the "install.sh" file in files
+   >  then Navigate to the "Download raw file" Tab on the top right
+
+   ```sh
+   cd ~/Downloads
+   chmod +x install.sh
+   ./install.sh
+   ```
+
+   > **Note:**  
+   > The installer will guide you through selecting a version and will set up Aero in `~/aero`.
+
+3. **After install:**
+
+   - Open a **new terminal window** or run:
+     ```sh
+     source ~/.zshrc
+     ```
+     or
+     ```sh
+     source ~/.bashrc
+     ```
+   - Now you can launch Aero from anywhere by typing:
+     ```sh
+     aero
+     ```
+---
+
+## Using TUI
+
+  >**Warning**
+  >Doing this could ruin your shell, Proceed with caution
+
+   - Normaly Install Exept install TUI Version only
+   - Make sure you have the Latest Python Version
+   - Install... Just figure it out
+
+---
 
 ## Usage
-```sh
-aero
-```
 
-**If you see 'command not found', add `/aero` to your PATH or use the provided alias.**
+When you start Aero, you'll see a colorful prompt and a welcome message with your username.
 
+### Built-in Commands
 
+| Command                | Description                       |
+|------------------------|-----------------------------------|
+| `ls`                   | List files in the current directory |
+| `cd [dir]`             | Change directory                  |
+| `mkdir <dir>`          | Make a new directory              |
+| `exit` or `quit`       | Exit Aero                         |
+| `installist`           | List installed and available plugins |
+| `install <name>`       | Install a plugin by name          |
+| `installdelete <name>` | Delete an installed plugin        |
+| `config`               | Show and change configuration     |
 
-## App List Format & Data Location
+---
 
-All Aero data, configs, binaries, and package manager are stored in `/aero` at the root of your drive. This includes:
+## Configuration
 
-- `/aero/aero` (main binary)
-- `/aero/app-list.txt` (JSON app list and settings)
-- `/aero/pkm-main/` (built-in package manager)
-- `/aero/pkm` (symlink to package manager)
-- `/aero/.src/` (source code, if installed from git)
+Aero stores its configuration in `~/aero/config.json`.
 
-The app list is stored as a JSON file (`/aero/app-list.txt`) with entries like:
-```json
-[
-  {"name": "Text Editor", "alias": "nano"},
-  {"name": "Resource Monitor", "alias": "htop"},
-  {"name": "NPM Package Manager", "alias": "npm"},
-  {"name": "NeoFetch", "alias": "neofetch"},
-  {"name": "Discord (TUI)", "alias": "discordo"},
-  {"name": "Pride Flag", "alias": "cli-pride-flags"}
-]
-```
+You can view and change settings using the `config` command inside Aero:
 
-You can add or remove apps by editing `/aero/app-list.txt`.
+- Show all config options:
+  ```
+  config
+  ```
+- Change your username:
+  ```
+  config username YourName
+  ```
+- Turn color on or off:
+  ```
+  config color on
+  config color off
+  ```
+- Change a color (use ANSI codes, e.g. `\033[35m` for magenta):
+  ```
+  config color prompt \033[35m
+  config color error \033[31m
+  ```
+- Show the raw config file:
+  ```
+  config show
+  ```
 
+---
 
-### Special Notes
-- If Go is installed, Discordo (TUI Discord client) will be built and installed automatically.
-- NPM and the global package `cli-pride-flags` are installed if missing.
-- Neofetch is always installed for system info.
-- **All Aero files, configs, and binaries are in `/aero` (not in $HOME, /usr/local, or elsewhere).**
+## Plugins
 
-### Aero Data Location
+- To see available plugins:
+  ```
+  installist
+  ```
+- To install a plugin:
+  ```
+  install <pluginname>
+  ```
+- To delete a plugin:
+  ```
+  installdelete <pluginname>
+  ```
 
-**Everything Aero uses is now in `/aero`!**
+Plugins are loaded from the `~/aero/plugins` directory at startup.
 
-- To launch: add `/aero` to your `PATH` (e.g. `export PATH="/aero:$PATH"`)
-- To edit the app list: `nano /aero/app-list.txt`
-- To update: run the installer again, or replace `/aero/aero`
-- To use the package manager: run `pkm` (symlinked in `/aero`)
+---
 
-No files are stored in your home directory or `/usr/local`.
+## Troubleshooting
+
+- **Command not found:**  
+  Make sure you opened a new terminal window or sourced your shell config after install.
+- **Wrong Python version:**  
+  The installer sets up Aero to use the correct Python. If you have issues, check your alias in `~/.zshrc` or `~/.bashrc`.
+- **Config not saving:**  
+  Make sure you have write permissions to `~/aero/config.json`.
+
+---
+
+## Uninstall
+
+To remove Aero, simply delete the `~/aero` directory and remove the `aero` alias from your shell config (`~/.zshrc` or `~/.bashrc`).
+
+---
 
 ## License
-MIT
+
+MIT License
+
+---
+
+## Credits
+
+Aero Installer and Shell by Holden  
+See [https://github.com/nebuff/aero](https://github.com/nebuff/aero) for updates.
