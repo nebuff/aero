@@ -6,7 +6,7 @@ VERSIONS_DIR="$INSTALL_DIR/versions"
 AERO_TMP="/tmp/aero_tmp_exec"
 
 clear
-echo "Aero Installer <-> By Holden"
+echo "Aero Installer <-> By Nebuff"
 echo
 
 # Prevent running from inside the install directory
