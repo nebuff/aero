@@ -1,0 +1,1197 @@
+#!/usr/bin/env python3
+import os
+import sys
+import shlex
+import importlib.util
+import urllib.request
+import json
+import datetime
+import readline
+
+# ANSI color codes - these will be updated from config
+COLOR_RESET = "\033[0m"
+COLOR_GREEN = "\033[32m"
+COLOR_YELLOW = "\033[33m"
+COLOR_RED = "\033[31m"
+COLOR_CYAN = "\033[36m"
+
+__AERO_VERSION__ = "aero-beta-2.1.3"  # Change this string for your version
+
+AERO_DIR = os.path.dirname(os.path.abspath(__file__))
+PLUGINS_DIR = os.path.join(AERO_DIR, "plugins")
+REPO_PLUGINS_URL = "https://raw.githubusercontent.com/nebuff/aero/main/plugins"
+CONFIG_PATH = os.path.join(AERO_DIR, "config.json")
+
+def initialize_aero():
+    """Initialize Aero by creating required files and directories on first run"""
+    # Create plugins directory if it doesn't exist
+    os.makedirs(PLUGINS_DIR, exist_ok=True)
+    
+    # Create lib directory if it doesn't exist
+    lib_dir = os.path.join(AERO_DIR, "lib")
+    os.makedirs(lib_dir, exist_ok=True)
+    
+    # Create config.json if it doesn't exist
+    if not os.path.exists(CONFIG_PATH):
+        default_config = {
+            "color": True,
+            "username": "Aero-User",
+            "time_format": "24",
+            "prompt_template": "<green>{username}@{hostname}</green> <blue>{short_pwd}</blue> > ",
+            "colors": {
+                # Core system colors - these control basic Aero functionality
+                "prompt": "\033[32m",       # Green - Color for the main prompt display
+                "info": "\033[36m",         # Cyan - Color for informational messages and help text
+                "error": "\033[31m",        # Red - Color for error messages and failures
+                "success": "\033[32m",      # Green - Color for success messages and confirmations
+                "warning": "\033[33m",      # Yellow - Color for warning messages and cautions
+                "reset": "\033[0m",         # Reset - Clears all formatting back to default
+                
+                # Plugin-specific colors - these control plugin output appearance
+                "plugin": "\033[36m",       # Cyan - Color for plugin names and headers
+                "plugin_output": "\033[37m", # White - Color for general plugin output text
+                "plugin_error": "\033[91m", # Bright Red - Color for plugin error messages
+                "plugin_success": "\033[92m", # Bright Green - Color for plugin success messages
+                
+                # UI element colors - these control interface elements
+                "header": "\033[1;36m",     # Bold Cyan - Color for main headers and titles
+                "subheader": "\033[1;33m",  # Bold Yellow - Color for section subheaders
+                "border": "\033[90m",       # Dark Gray - Color for borders and separators
+                "highlight": "\033[1;37m",  # Bold White - Color for highlighted important text
+                "dim": "\033[2;37m",        # Dim White - Color for less important text
+                
+                # Data display colors - these control how data is presented
+                "data_primary": "\033[36m",   # Cyan - Color for primary data labels
+                "data_secondary": "\033[35m", # Magenta - Color for secondary data labels
+                "data_value": "\033[37m",     # White - Color for data values and content
+                "data_key": "\033[33m",       # Yellow - Color for data keys and identifiers
+                
+                # Status colors - these show different states and conditions
+                "status_online": "\033[92m",   # Bright Green - Color for online/active status
+                "status_offline": "\033[91m",  # Bright Red - Color for offline/inactive status
+                "status_pending": "\033[93m",  # Bright Yellow - Color for pending/waiting status
+                "status_unknown": "\033[90m",  # Dark Gray - Color for unknown status
+                
+                # Special formatting - these add text effects
+                "bold": "\033[1m",          # Bold text formatting
+                "italic": "\033[3m",        # Italic text formatting
+                "underline": "\033[4m",     # Underlined text formatting
+                "strikethrough": "\033[9m",  # Strikethrough text formatting
+                "highlight_format": "\033[7m"  # Highlight (reverse video) text formatting
+            }
+        }
+        try:
+            with open(CONFIG_PATH, "w") as f:
+                json.dump(default_config, f, indent=2)
+            print(f"{COLOR_GREEN}Created config.json with default settings{COLOR_RESET}")
+        except Exception as e:
+            print(f"{COLOR_RED}Failed to create config.json: {e}{COLOR_RESET}")
+    
+    # Create .gitignore if it doesn't exist
+    gitignore_path = os.path.join(AERO_DIR, ".gitignore")
+    if not os.path.exists(gitignore_path):
+        gitignore_content = """# Aero files
+.aero_history
+config.json
+
+# Python cache
+__pycache__/
+*.pyc
+"""
+        try:
+            with open(gitignore_path, "w") as f:
+                f.write(gitignore_content)
+            print(f"{COLOR_GREEN}Created .gitignore{COLOR_RESET}")
+        except Exception as e:
+            print(f"{COLOR_RED}Failed to create .gitignore: {e}{COLOR_RESET}")
+
+def cmd_ls(args):
+    path = args[0] if args else '.'
+    try:
+        for entry in os.listdir(path):
+            print(f"{COLOR_CYAN}{entry}{COLOR_RESET}")
+    except Exception as e:
+        print(f"{COLOR_RED}ls: {e}{COLOR_RESET}")
+
+def cmd_cd(args):
+    # Fix: If no args, cd to home directory
+    if not args:
+        try:
+            os.chdir(os.path.expanduser("~"))
+        except Exception as e:
+            print(f"{COLOR_RED}cd: {e}{COLOR_RESET}")
+        return
+    try:
+        os.chdir(args[0])
+    except Exception as e:
+        print(f"{COLOR_RED}cd: {e}{COLOR_RESET}")
+
+def cmd_mkdir(args):
+    if not args:
+        print(f"{COLOR_RED}mkdir: missing operand{COLOR_RESET}")
+        return
+    try:
+        os.makedirs(args[0], exist_ok=True)
+    except Exception as e:
+        print(f"{COLOR_RED}mkdir: {e}{COLOR_RESET}")
+
+def cmd_exit(args):
+    sys.exit(0)
+
+# Create plugins directory if it doesn't exist
+os.makedirs(PLUGINS_DIR, exist_ok=True)
+
+# Command registry for easy extension
+COMMANDS = {
+    'ls': cmd_ls,
+    'cd': cmd_cd,
+    'mkdir': cmd_mkdir,
+    'exit': cmd_exit,
+    'quit': cmd_exit,
+}
+
+def installist(args):
+    # List installed plugins (without .py)
+    if not os.path.isdir(PLUGINS_DIR):
+        print("No plugins directory found.")
+        return
+    installed = [f[:-3] for f in os.listdir(PLUGINS_DIR) if f.endswith(".py")]
+    if installed:
+        print(f"{COLOR_YELLOW}Installed plugins:{COLOR_RESET}")
+        for plugin in installed:
+            print(f"- {COLOR_CYAN}{plugin}{COLOR_RESET}")
+    else:
+        print(f"{COLOR_YELLOW}No plugins installed.{COLOR_RESET}")
+
+    # List available plugins from the repo (using GitHub API)
+    try:
+        import ssl
+        import json as _json
+        api_url = "https://api.github.com/repos/nebuff/aero/contents/plugins"
+        context = ssl._create_unverified_context()
+        with urllib.request.urlopen(api_url, context=context) as resp:
+            data = resp.read().decode()
+        files = _json.loads(data)
+        available = set()
+        for f in files:
+            name = f.get("name", "")
+            if name.endswith(".py"):
+                available.add(name[:-3])
+        if available:
+            print(f"\n{COLOR_YELLOW}Avalilble plugins:{COLOR_RESET}")
+            for plugin in sorted(available):
+                mark = f"{COLOR_GREEN}[x]{COLOR_RESET}" if plugin in installed else f"{COLOR_RED}[ ]{COLOR_RESET}"
+                print(f"{mark} {COLOR_CYAN}{plugin}{COLOR_RESET}")
+        else:
+            print(f"\n{COLOR_RED}No available plugins found in repo.{COLOR_RESET}")
+    except Exception as e:
+        print(f"\n{COLOR_RED}Could not fetch available plugins from repo: {e}{COLOR_RESET}")
+
+COMMANDS['installist'] = installist
+
+def install_plugin(args):
+    if not args:
+        print(f"{COLOR_RED}install: missing plugin name{COLOR_RESET}")
+        return
+    plugin_name = args[0]
+    # Remove .py if present
+    if plugin_name.endswith(".py"):
+        plugin_name = plugin_name[:-3]
+    plugin_file = f"{plugin_name}.py"
+    url = f"{REPO_PLUGINS_URL}/{plugin_file}"
+    dest = os.path.join(PLUGINS_DIR, plugin_file)
+    
+    # Create plugins directory if it doesn't exist
+    os.makedirs(PLUGINS_DIR, exist_ok=True)
+    
+    try:
+        import ssl
+        context = ssl._create_unverified_context()
+        print(f"Downloading plugin from {url} ...")
+        with urllib.request.urlopen(url, context=context) as response, open(dest, "wb") as out_file:
+            out_file.write(response.read())
+        print(f"{COLOR_GREEN}Installed plugin '{plugin_name}'. Restart Aero to load it.{COLOR_RESET}")
+    except Exception as e:
+        print(f"{COLOR_RED}Failed to install plugin: {e}{COLOR_RESET}")
+
+COMMANDS['install'] = install_plugin
+
+def installdelete(args):
+    if not args:
+        print(f"{COLOR_RED}installdelete: missing plugin name{COLOR_RESET}")
+        return
+    plugin_name = args[0]
+    # Remove .py if present
+    if plugin_name.endswith(".py"):
+        plugin_name = plugin_name[:-3]
+    plugin_file = f"{plugin_name}.py"
+    plugin_path = os.path.join(PLUGINS_DIR, plugin_file)
+    if os.path.isfile(plugin_path):
+        try:
+            os.remove(plugin_path)
+            print(f"{COLOR_GREEN}Deleted plugin '{plugin_name}'. Restart Aero to unload it.{COLOR_RESET}")
+        except Exception as e:
+            print(f"{COLOR_RED}Failed to delete plugin: {e}{COLOR_RESET}")
+    else:
+        print(f"{COLOR_RED}Plugin '{plugin_name}' is not installed.{COLOR_RESET}")
+
+COMMANDS['installdelete'] = installdelete
+
+def load_config():
+    default_config = {
+        "color": True,
+        "username": "Aero-User",
+        "time_format": "24",
+        "prompt_template": "<green>{username}@{hostname}</green> <blue>{short_pwd}</blue> > ",
+        "colors": {
+            # Core system colors - these control basic Aero functionality
+            "prompt": "\033[32m",       # Green - Color for the main prompt display
+            "info": "\033[33m",         # Yellow - Color for informational messages and help text
+            "error": "\033[31m",        # Red - Color for error messages and failures
+            "success": "\033[32m",      # Green - Color for success messages and confirmations
+            "warning": "\033[33m",      # Yellow - Color for warning messages and cautions
+            "reset": "\033[0m",         # Reset - Clears all formatting back to default
+            
+            # Plugin-specific colors - these control plugin output appearance
+            "plugin": "\033[36m",       # Cyan - Color for plugin names and headers
+            "plugin_output": "\033[37m", # White - Color for general plugin output text
+            "plugin_error": "\033[91m", # Bright Red - Color for plugin error messages
+            "plugin_success": "\033[92m", # Bright Green - Color for plugin success messages
+            
+            # UI element colors - these control interface elements
+            "header": "\033[1;36m",     # Bold Cyan - Color for main headers and titles
+            "subheader": "\033[1;33m",  # Bold Yellow - Color for section subheaders
+            "border": "\033[90m",       # Dark Gray - Color for borders and separators
+            "highlight": "\033[1;37m",  # Bold White - Color for highlighted important text
+            "dim": "\033[2;37m",        # Dim White - Color for less important text
+            
+            # Data display colors - these control how data is presented
+            "data_primary": "\033[36m",   # Cyan - Color for primary data labels
+            "data_secondary": "\033[35m", # Magenta - Color for secondary data labels
+            "data_value": "\033[37m",     # White - Color for data values and content
+            "data_key": "\033[33m",       # Yellow - Color for data keys and identifiers
+            
+            # Status colors - these show different states and conditions
+            "status_online": "\033[92m",   # Bright Green - Color for online/active status
+            "status_offline": "\033[91m",  # Bright Red - Color for offline/inactive status
+            "status_pending": "\033[93m",  # Bright Yellow - Color for pending/waiting status
+            "status_unknown": "\033[90m",  # Dark Gray - Color for unknown status
+            
+            # Special formatting - these add text effects
+            "bold": "\033[1m",          # Bold text formatting
+            "italic": "\033[3m",        # Italic text formatting
+            "underline": "\033[4m",     # Underlined text formatting
+            "strikethrough": "\033[9m", # Strikethrough text formatting
+            "highlight_format": "\033[7m"  # Highlight (reverse video) text formatting
+        }
+    }
+    
+    if not os.path.isfile(CONFIG_PATH):
+        return default_config.copy()
+        
+    try:
+        with open(CONFIG_PATH, "r") as f:
+            config = json.load(f)
+            
+        # Track if we need to save updated config
+        config_updated = False
+        
+        # Ensure all default values exist
+        for key, value in default_config.items():
+            if key not in config:
+                config[key] = value
+                config_updated = True
+            if key == "colors" and isinstance(value, dict):
+                for color_key, color_value in value.items():
+                    if color_key not in config["colors"]:
+                        config["colors"][color_key] = color_value
+                        config_updated = True
+        
+        # Save updated config if new colors were added
+        if config_updated:
+            try:
+                with open(CONFIG_PATH, "w") as f:
+                    json.dump(config, f, indent=2)
+                print(f"{COLOR_GREEN}Updated config.json with new color options{COLOR_RESET}")
+            except Exception as e:
+                print(f"{COLOR_RED}Failed to update config.json: {e}{COLOR_RESET}")
+                        
+        return config
+    except Exception:
+        return default_config.copy()
+
+def save_config(config):
+    try:
+        with open(CONFIG_PATH, "w") as f:
+            json.dump(config, f, indent=2)
+    except Exception as e:
+        print(f"Failed to save config: {e}")
+
+config = load_config()
+
+# Global color functions for plugins to use
+def get_color(key):
+    """Get a color code by key. Returns empty string if colors are disabled."""
+    if config.get("color", True):
+        return config.get("colors", {}).get(key, "")
+    return ""
+
+def colorize(text, color_key):
+    """Colorize text with a specific color key."""
+    if not config.get("color", True):
+        return text
+    color = get_color(color_key)
+    reset = get_color("reset")
+    return f"{color}{text}{reset}"
+
+def get_color_palette():
+    """Get all available color categories for plugins."""
+    return {
+        "core": ["prompt", "info", "error", "success", "warning", "reset"],
+        "plugin": ["plugin", "plugin_output", "plugin_error", "plugin_success"],
+        "ui": ["header", "subheader", "border", "highlight", "dim"],
+        "data": ["data_primary", "data_secondary", "data_value", "data_key"],
+        "status": ["status_online", "status_offline", "status_pending", "status_unknown"],
+        "format": ["bold", "italic", "underline", "strikethrough"]
+    }
+
+def print_colored(text, color_key):
+    """Print text with a specific color."""
+    print(colorize(text, color_key))
+
+def update_colors_from_config():
+    global COLOR_RESET, COLOR_GREEN, COLOR_YELLOW, COLOR_RED, COLOR_CYAN
+    COLOR_RESET = get_color("reset")
+    COLOR_GREEN = get_color("success")
+    COLOR_YELLOW = get_color("warning")
+    COLOR_RED = get_color("error")
+    COLOR_CYAN = get_color("plugin")
+
+# Make color functions available to plugins
+def register_colors_for_plugins():
+    """Register color functions in a way that plugins can import them."""
+    # This allows plugins to import these functions
+    globals()['aero_get_color'] = get_color
+    globals()['aero_colorize'] = colorize
+    globals()['aero_print_colored'] = print_colored
+    globals()['aero_get_color_palette'] = get_color_palette
+
+def cmd_pwd(args):
+    print(f"{COLOR_CYAN}{os.getcwd()}{COLOR_RESET}")
+
+def cmd_sfc(args):
+    if not args:
+        print(f"{COLOR_RED}sfc: missing filename{COLOR_RESET}")
+        return
+    try:
+        with open(args[0], "r") as f:
+            print(f"{COLOR_CYAN}{f.read()}{COLOR_RESET}")
+    except Exception as e:
+        print(f"{COLOR_RED}sfc: {e}{COLOR_RESET}")
+
+def cmd_cef(args):
+    if not args:
+        print(f"{COLOR_RED}cef: missing filename{COLOR_RESET}")
+        return
+    try:
+        with open(args[0], "a"):
+            os.utime(args[0], None)
+        print(f"{COLOR_GREEN}Created or updated {args[0]}{COLOR_RESET}")
+    except Exception as e:
+        print(f"{COLOR_RED}cef: {e}{COLOR_RESET}")
+
+def cmd_clear(args):
+    os.system('clear')
+
+def config_command(args):
+    # Color name to ANSI code mapping
+    COLOR_MAP = {
+        'black': '\033[30m',
+        'red': '\033[31m',
+        'green': '\033[32m',
+        'yellow': '\033[33m',
+        'blue': '\033[34m',
+        'magenta': '\033[35m',
+        'cyan': '\033[36m',
+        'aqua': '\033[36m',  # alias for cyan
+        'white': '\033[37m',
+        'bright_black': '\033[90m',
+        'bright_red': '\033[91m',
+        'bright_green': '\033[92m',
+        'bright_yellow': '\033[93m',
+        'bright_blue': '\033[94m',
+        'bright_magenta': '\033[95m',
+        'bright_cyan': '\033[96m',
+        'bright_white': '\033[97m',
+        'bold': '\033[1m',
+        'italic': '\033[3m',
+        'underline': '\033[4m',
+        'strikethrough': '\033[9m',
+        'dim': '\033[2m',
+        'highlight': '\033[7m',  # Add highlight (reverse video)
+        'reset': '\033[0m',
+        'clear': '\033[0m'
+    }
+    
+    # Define valid colors and formats for validation
+    VALID_COLORS = {
+        'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'aqua', 'white',
+        'bright_black', 'bright_red', 'bright_green', 'bright_yellow', 'bright_blue',
+        'bright_magenta', 'bright_cyan', 'bright_white'
+    }
+    
+    VALID_FORMATS = {
+        'bold', 'italic', 'underline', 'strikethrough', 'dim', 'highlight', 'reset', 'clear'
+    }
+    
+    # Show current config and options
+    print(f"{get_color('header')}Aero Configuration:{get_color('reset')}")
+    print(f"  username: {config.get('username', 'Aero-User')}")
+    print(f"  color: {'on' if config.get('color', True) else 'off'}")
+    print(f"  time_format: {config.get('time_format', '24')} (set to '12' or '24')")
+    print(f"  prompt_template: {config.get('prompt_template', DEFAULT_CONFIG['prompt_template'])}")
+    
+    # Display colors by category with descriptions
+    print(f"\n{get_color('subheader')}Color Categories and Usage:{get_color('reset')}")
+    
+    color_descriptions = {
+        "core": {
+            "description": "Basic Aero system colors for main functionality",
+            "colors": {
+                "prompt": "Main command prompt display color",
+                "info": "Informational messages and help text",
+                "error": "Error messages and failure notifications", 
+                "success": "Success messages and confirmations",
+                "warning": "Warning messages and cautions",
+                "reset": "Clears all formatting back to default"
+            }
+        },
+        "plugin": {
+            "description": "Colors used by plugins for their output",
+            "colors": {
+                "plugin": "Plugin names and headers",
+                "plugin_output": "General plugin output text",
+                "plugin_error": "Plugin error messages",
+                "plugin_success": "Plugin success messages"
+            }
+        },
+        "ui": {
+            "description": "User interface elements and layout",
+            "colors": {
+                "header": "Main headers and titles",
+                "subheader": "Section subheaders",
+                "border": "Borders and separators",
+                "highlight": "Highlighted important text",
+                "dim": "Less important or secondary text"
+            }
+        },
+        "data": {
+            "description": "Data presentation and display formatting",
+            "colors": {
+                "data_primary": "Primary data labels",
+                "data_secondary": "Secondary data labels", 
+                "data_value": "Data values and content",
+                "data_key": "Data keys and identifiers"
+            }
+        },
+        "status": {
+            "description": "Status indicators for different states",
+            "colors": {
+                "status_online": "Online/active status indicators",
+                "status_offline": "Offline/inactive status indicators",
+                "status_pending": "Pending/waiting status indicators",
+                "status_unknown": "Unknown status indicators"
+            }
+        },
+        "format": {
+            "description": "Text formatting effects and styles",
+            "colors": {
+                "bold": "Bold text formatting",
+                "italic": "Italic text formatting", 
+                "underline": "Underlined text formatting",
+                "strikethrough": "Strikethrough text formatting"
+            }
+        }
+    }
+    
+    for category, info in color_descriptions.items():
+        print(f"\n  {get_color('data_key')}{category.upper()}:{get_color('reset')} {get_color('dim')}{info['description']}{get_color('reset')}")
+        for key, description in info['colors'].items():
+            color_value = config.get("colors", {}).get(key, "")
+            # Show visual preview of the color/formatting
+            if config.get("color", True) and color_value:
+                preview_text = f"{color_value}Preview{get_color('reset')}"
+            else:
+                preview_text = "Preview"
+            print(f"    {get_color('data_primary')}{key:<20}{get_color('reset')}: {get_color('data_value')}{repr(color_value):<15}{get_color('reset')} {preview_text} {get_color('dim')}# {description}{get_color('reset')}")
+    
+    print()
+    print("Available config commands:")
+    print("  config username <name>         - Set your Aero username")
+    print("  config color on|off            - Enable or disable color")
+    print("  config color <type> <code>     - Set ANSI color code for type")
+    print("  config colors                  - Show all color categories")
+    print("  config prompt <template>       - Set prompt template")
+    print("  config time_format 12|24       - Set 12-hour or 24-hour time format")
+    print("  config reset                   - Reset all config to default")
+    print("  config show                    - Show current config")
+    print()
+    print(f"Available color names: {', '.join(sorted(COLOR_MAP.keys()))}")
+    print()
+    if not args:
+        return
+    if args[0] == "username" and len(args) > 1:
+        config["username"] = " ".join(args[1:])
+        save_config(config)
+        print_colored(f"Username set to {config['username']}", "success")
+    elif args[0] == "color":
+        if len(args) == 2 and args[1] in ("on", "off"):
+            config["color"] = (args[1] == "on")
+            save_config(config)
+            update_colors_from_config()
+            print_colored(f"Color {'enabled' if config['color'] else 'disabled'}", "success")
+        elif len(args) == 3:
+            color_type = args[1]
+            color_input = args[2].strip()
+            
+            # Check if color type exists in any category
+            palette = get_color_palette()
+            valid_colors = []
+            for category_colors in palette.values():
+                valid_colors.extend(category_colors)
+            
+            if color_type not in valid_colors:
+                print_colored(f"Unknown color type '{color_type}'", "error")
+                print(f"Available types: {', '.join(sorted(valid_colors))}")
+                return
+            
+            # Remove angle brackets if present (handle <magenta> format)
+            if color_input.startswith('<') and color_input.endswith('>'):
+                color_input = color_input[1:-1]
+            
+            # Handle combined formatting like "bold,green" or "green,bold"
+            if ',' in color_input:
+                parts = [part.strip().lower() for part in color_input.split(',')]
+                combined_code = ""
+                colors_found = []
+                formats_found = []
+                invalid_parts = []
+                
+                for part in parts:
+                    if part in VALID_COLORS:
+                        colors_found.append(part)
+                        combined_code += COLOR_MAP[part]
+                    elif part in VALID_FORMATS:
+                        formats_found.append(part)
+                        combined_code += COLOR_MAP[part]
+                    else:
+                        invalid_parts.append(part)
+                
+                # Validate the combination
+                if invalid_parts:
+                    print_colored(f"Invalid color/format names: {', '.join(invalid_parts)}", "error")
+                    print(f"Valid colors: {', '.join(sorted(VALID_COLORS))}")
+                    print(f"Valid formats: {', '.join(sorted(VALID_FORMATS))}")
+                    return
+                
+                if len(colors_found) > 1:
+                    print_colored(f"Error: Cannot combine multiple colors: {', '.join(colors_found)}", "error")
+                    print("Use only one color with optional formatting (e.g., 'bold,green' or 'green,underline')")
+                    return
+                
+                if not colors_found and not formats_found:
+                    print_colored("Error: No valid colors or formats specified", "error")
+                    return
+                
+                final_color_code = combined_code
+                description = []
+                if formats_found:
+                    description.extend(formats_found)
+                if colors_found:
+                    description.extend(colors_found)
+                
+                print_colored(f"Applied formatting: {', '.join(description)}", "info")
+                
+            else:
+                # Handle single color/format
+                color_code = color_input.lower()
+                if color_code in COLOR_MAP:
+                    final_color_code = COLOR_MAP[color_code]
+                    if color_code in VALID_COLORS:
+                        print_colored(f"Applied color: {color_code}", "info")
+                    elif color_code in VALID_FORMATS:
+                        print_colored(f"Applied format: {color_code}", "info")
+                    else:
+                        print_colored(f"Applied: {color_code}", "info")
+                else:
+                    # Check if it's an invalid color/format name
+                    if any(color_code in valid_set for valid_set in [VALID_COLORS, VALID_FORMATS]):
+                        print_colored(f"Error: '{color_input}' is not a valid color or format name", "error")
+                    else:
+                        print_colored(f"Error: Unknown color/format '{color_input}'", "error")
+                        print(f"Valid colors: {', '.join(sorted(VALID_COLORS))}")
+                        print(f"Valid formats: {', '.join(sorted(VALID_FORMATS))}")
+                    return
+            
+            config.setdefault("colors", {})[color_type] = final_color_code
+            save_config(config)
+            update_colors_from_config()
+            print_colored(f"Color for {color_type} set to {final_color_code}", "success")
+        elif len(args) == 2 and args[1] == "list":
+            # Show available color categories
+            palette = get_color_palette()
+            print(f"\n{get_color('header')}Available Color Categories:{get_color('reset')}")
+            for category, color_keys in palette.items():
+                print(f"\n{get_color('subheader')}{category.upper()}:{get_color('reset')}")
+                for key in color_keys:
+                    print(f"  {get_color('data_primary')}{key}{get_color('reset')}")
+        else:
+            print_colored("Usage: config color on|off OR config color <type> <code|name> OR config color list", "error")
+            print(f"Available color names: {', '.join(sorted(VALID_COLORS))}")
+            print(f"Available format names: {', '.join(sorted(VALID_FORMATS))}")
+            print("You can combine formats with colors like: bold,green or underline,blue")
+    elif args[0] == "colors":
+        # Show color examples
+        palette = get_color_palette()
+        print(f"\n{get_color('header')}Color Examples by Category:{get_color('reset')}")
+        for category, color_keys in palette.items():
+            print(f"\n{get_color('subheader')}{category.upper()}:{get_color('reset')}")
+            for key in color_keys:
+                example_text = f"Example {key} text"
+                colored_example = colorize(example_text, key)
+                print(f"  {get_color('data_key')}{key:<20}{get_color('reset')}: {colored_example}")
+    elif args[0] == "time_format" and len(args) > 1:
+        if args[1] in ("12", "24"):
+            config["time_format"] = args[1]
+            save_config(config)
+            print(f"{COLOR_GREEN}Time format set to {args[1]}-hour{COLOR_RESET}")
+        else:
+            print(f"{COLOR_RED}Usage: config time_format 12|24{COLOR_RESET}")
+    elif args[0] == "reset":
+        # Reset config to default
+        default = {
+            "color": True,
+            "username": "Aero-User",
+            "time_format": "24",
+            "colors": {
+                "prompt": "\033[32m",
+                "info": "\033[33m",
+                "error": "\033[31m",
+                "plugin": "\033[36m",
+                "reset": "\033[0m"
+            }
+        }
+        config.clear()
+        config.update(default)
+        save_config(config)
+        update_colors_from_config()
+        print(f"{COLOR_GREEN}Config reset to default.{COLOR_RESET}")
+    elif args[0] == "show":
+        print(json.dumps(config, indent=2))
+    elif args[0] == "prompt":
+        if len(args) > 1:
+            # Join all arguments and keep quotes intact
+            template = " ".join(args[1:])
+            # Remove outer quotes if present
+            if template.startswith('"') and template.endswith('"'):
+                template = template[1:-1]
+            elif template.startswith("'") and template.endswith("'"):
+                template = template[1:-1]
+            
+            config["prompt_template"] = template
+            save_config(config)
+            print(f"{COLOR_GREEN}Prompt template set to:{COLOR_RESET}")
+            print(f"  Template: {template}")
+            print(f"  Result:  {format_prompt(template)}")
+        else:
+            print(f"{COLOR_RED}Usage: config prompt <template>{COLOR_RESET}")
+            print('Example: config prompt "<green>{username}</green>@<blue>{hostname}</blue> > "')
+            print("Use 'format' command to see all available options")
+        return
+    else:
+        print(f"{COLOR_RED}Unknown config command or missing arguments.{COLOR_RESET}")
+
+COMMANDS['config'] = config_command
+COMMANDS['clear'] = cmd_clear
+COMMANDS['pwd'] = cmd_pwd
+COMMANDS['sfc'] = cmd_sfc
+COMMANDS['cef'] = cmd_cef
+
+def cmd_time(args):
+    time_fmt = config.get("time_format", "24")
+    if not args:
+        # Show local system time
+        now = datetime.datetime.now()
+        if time_fmt == "12":
+            timestr = now.strftime('%Y-%m-%d %I:%M:%S %p')
+        else:
+            timestr = now.strftime('%Y-%m-%d %H:%M:%S')
+        print(f"{COLOR_CYAN}Local Time: {timestr}{COLOR_RESET}")
+        return
+    # Show time for another place using worldtimeapi.org
+    place = "_".join(args).lower()
+    import ssl
+    import json as _json
+    try:
+        context = ssl._create_unverified_context()
+        url = f"https://worldtimeapi.org/api/timezone"
+        with urllib.request.urlopen(url, context=context) as resp:
+            zones = _json.loads(resp.read().decode())
+        match = None
+        for z in zones:
+            if place in z.lower():
+                match = z
+                break
+        if not match:
+            print(f"{COLOR_RED}Could not find timezone for '{' '.join(args)}'.{COLOR_RESET}")
+            return
+        url = f"https://worldtimeapi.org/api/timezone/{match}"
+        with urllib.request.urlopen(url, context=context) as resp:
+            data = _json.loads(resp.read().decode())
+        dt = data.get("datetime", "")
+        if dt:
+            dt = dt.replace("T", " ").split(".")[0]
+            # dt is in UTC or local time, format accordingly
+            dt_obj = datetime.datetime.strptime(dt, "%Y-%m-%d %H:%M:%S")
+            if time_fmt == "12":
+                timestr = dt_obj.strftime('%Y-%m-%d %I:%M:%S %p')
+            else:
+                timestr = dt_obj.strftime('%Y-%m-%d %H:%M:%S')
+            print(f"{COLOR_CYAN}Time in {match}: {timestr}{COLOR_RESET}")
+        else:
+            print(f"{COLOR_RED}Could not get time for {match}.{COLOR_RESET}")
+    except Exception as e:
+        print(f"{COLOR_RED}time: {e}{COLOR_RESET}")
+
+COMMANDS['time'] = cmd_time
+
+def cmd_help(args):
+    print(f"{COLOR_YELLOW}Aero Help - Available Commands:{COLOR_RESET}")
+    print(f"{COLOR_CYAN}ls{COLOR_RESET}                - List files in the current directory")
+    print(f"{COLOR_CYAN}cd [dir]{COLOR_RESET}          - Change directory")
+    print(f"{COLOR_CYAN}mkdir <dir>{COLOR_RESET}       - Make a new directory")
+    print(f"{COLOR_CYAN}pwd{COLOR_RESET}               - Print working directory")
+    print(f"{COLOR_CYAN}sfc <file>{COLOR_RESET}        - Show file contents")
+    print(f"{COLOR_CYAN}cef <file>{COLOR_RESET}        - Create empty file")
+    print(f"{COLOR_CYAN}clear{COLOR_RESET}             - Clear the terminal")
+    print(f"{COLOR_CYAN}pl{COLOR_RESET}                - Show installed and available plugins")
+    print(f"{COLOR_CYAN}install <name>{COLOR_RESET}    - Install a plugin by name")
+    print(f"{COLOR_CYAN}installdelete <name>{COLOR_RESET} - Delete an installed plugin")
+    print(f"{COLOR_CYAN}config{COLOR_RESET}            - Show and change configuration")
+    print(f"{COLOR_CYAN}exit{COLOR_RESET}, {COLOR_CYAN}quit{COLOR_RESET}      - Exit Aero")
+    print(f"{COLOR_CYAN}help{COLOR_RESET}              - Show this help message")
+    print(f"{COLOR_CYAN}time{COLOR_RESET}               - Show local system time")
+    print(f"{COLOR_CYAN}time <place>{COLOR_RESET}       - Show time in another place (city/region)")
+    print(f"{COLOR_CYAN}mkex <file>{COLOR_RESET}        - Make a file executable (chmod +x)")
+    print()
+    print(f"{COLOR_YELLOW}Tip:{COLOR_RESET} Use 'config' for color, username, and more settings.")
+
+COMMANDS['help'] = cmd_help
+
+def cmd_ver(args):
+    print(f"{COLOR_CYAN}Aero Version: {__AERO_VERSION__}{COLOR_RESET}")
+    print(f"{COLOR_YELLOW}Plugin Versions:{COLOR_RESET}")
+    for fname in os.listdir(PLUGINS_DIR):
+        if fname.endswith(".py"):
+            fpath = os.path.join(PLUGINS_DIR, fname)
+            version = "unknown"
+            try:
+                with open(fpath, "r") as f:
+                    for line in f:
+                        if "__PLUGIN_VERSION__" in line:
+                            version = line.split("=")[1].strip().strip('"\'')
+                            break
+            except Exception:
+                pass
+            print(f"  {COLOR_CYAN}{fname[:-3]}{COLOR_RESET}: {COLOR_GREEN}{version}{COLOR_RESET}")
+
+COMMANDS['ver'] = cmd_ver
+
+def load_plugins():
+    if not os.path.isdir(PLUGINS_DIR):
+        return
+    loaded = 0
+    for fname in os.listdir(PLUGINS_DIR):
+        if fname.endswith(".py"):
+            fpath = os.path.join(PLUGINS_DIR, fname)
+            try:
+                spec = importlib.util.spec_from_file_location(fname[:-3], fpath)
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                if hasattr(mod, "register"):
+                    mod.register(COMMANDS)
+                loaded += 1
+            except Exception:
+                pass
+    print(f"{COLOR_GREEN}Loaded {loaded} Plugins{COLOR_RESET}")
+
+def cmd_refresh(args):
+    print(f"{COLOR_YELLOW}Refreshing Aero...{COLOR_RESET}")
+    
+    # Reload configuration
+    global config
+    config = load_config()
+    update_colors_from_config()
+    
+    # Clear terminal
+    os.system('clear')
+    
+    # Clear existing plugin commands
+    plugin_commands = set(COMMANDS.keys()) - {'ls', 'cd', 'mkdir', 'exit', 'quit', 'install', 
+        'installist', 'installdelete', 'config', 'clear', 'pwd', 'sfc', 'cef', 
+        'help', 'ver', 'time', 'refresh'}
+    for cmd in plugin_commands:
+        COMMANDS.pop(cmd, None)
+    
+    # Reload all plugins
+    if not os.path.isdir(PLUGINS_DIR):
+        print(f"{COLOR_RED}No plugins directory found.{COLOR_RESET}")
+        return
+    
+    loaded = 0
+    for fname in os.listdir(PLUGINS_DIR):
+        if fname.endswith(".py"):
+            fpath = os.path.join(PLUGINS_DIR, fname)
+            try:
+                # Force reload by invalidating cache
+                if fname[:-3] in sys.modules:
+                    del sys.modules[fname[:-3]]
+                spec = importlib.util.spec_from_file_location(fname[:-3], fpath)
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                if hasattr(mod, "register"):
+                    mod.register(COMMANDS)
+                loaded += 1
+            except Exception as e:
+                print(f"{COLOR_RED}Failed to reload {fname}: {e}{COLOR_RESET}")
+    
+    # Re-display welcome message
+    print(f"{COLOR_GREEN}Aero Mac <-> by, Holden{COLOR_RESET}")
+    print(f"{COLOR_CYAN}Version: {__AERO_VERSION__}{COLOR_RESET}")
+    print(f"{COLOR_CYAN}Welcome, {config.get('username', 'Aero-User')}{COLOR_RESET} \n")
+    print(f"{COLOR_GREEN}Reloaded {loaded} plugins{COLOR_RESET}")
+    print(f"{COLOR_RED}Refreshing is OLD! and Not Recommended, use 'exit' to restart Aero Properly{COLOR_RESET}")
+    print(f"{COLOR_YELLOW}Refreshing may not Fix/Update any Plugins/System Components{COLOR_RESET}")
+
+COMMANDS['refresh'] = cmd_refresh
+
+def cmd_pl(args):
+    # Show installed plugins
+    print(f"{COLOR_YELLOW}Installed Plugins:{COLOR_RESET}")
+    if not os.path.isdir(PLUGINS_DIR):
+        print(f"{COLOR_RED}No plugins directory found.{COLOR_RESET}")
+        return
+    
+    installed = [f[:-3] for f in os.listdir(PLUGINS_DIR) if f.endswith(".py")]
+    if not installed:
+        print(f"{COLOR_YELLOW}No plugins installed.{COLOR_RESET}")
+    else:
+        for plugin in sorted(installed):
+            plugin_file = os.path.join(PLUGINS_DIR, f"{plugin}.py")
+            version = "unknown"
+            try:
+                with open(plugin_file, "r") as f:
+                    for line in f:
+                        if "__PLUGIN_VERSION__" in line:
+                            version = line.split("=")[1].strip().strip('"\'')
+                            break
+            except Exception:
+                pass
+            print(f"  {COLOR_CYAN}{plugin}{COLOR_RESET}: {COLOR_GREEN}{version}{COLOR_RESET}")
+
+    # Show available plugins from repo
+    try:
+        import ssl
+        import json as _json
+        api_url = "https://api.github.com/repos/nebuff/aero/contents/plugins"
+        context = ssl._create_unverified_context()
+        with urllib.request.urlopen(api_url, context=context) as resp:
+            data = resp.read().decode()
+        files = _json.loads(data)
+        available = set()
+        for f in files:
+            name = f.get("name", "")
+            if name.endswith(".py"):
+                available.add(name[:-3])
+        if available:
+            print(f"\n{COLOR_YELLOW}Available plugins:{COLOR_RESET}")
+            for plugin in sorted(available):
+                mark = f"{COLOR_GREEN}[x]{COLOR_RESET}" if plugin in installed else f"{COLOR_RED}[ ]{COLOR_RESET}"
+                print(f"{mark} {COLOR_CYAN}{plugin}{COLOR_RESET}")
+        else:
+            print(f"\n{COLOR_RED}No available plugins found in repo.{COLOR_RESET}")
+    except Exception as e:
+        print(f"\n{COLOR_RED}Could not fetch available plugins from repo: {e}{COLOR_RESET}")
+
+COMMANDS['pl'] = cmd_pl  # Add this line
+
+def cmd_mkex(args):
+    if not args:
+        print(f"{COLOR_RED}mkex: missing filename{COLOR_RESET}")
+        return
+    try:
+        os.chmod(args[0], 0o755)
+        print(f"{COLOR_GREEN}Made {args[0]} executable{COLOR_RESET}")
+    except Exception as e:
+        print(f"{COLOR_RED}mkex: {e}{COLOR_RESET}")
+
+def format_text(text):
+    """Convert <color>text</color> tags to ANSI codes"""
+    import re
+    COLORS = {
+        'black': '\033[30m',
+        'red': '\033[31m',
+        'green': '\033[32m',
+        'yellow': '\033[33m',
+        'blue': '\033[34m',
+        'magenta': '\033[35m',
+        'cyan': '\033[36m',
+        'aqua': '\033[36m',  # Add aqua as alias for cyan
+        'white': '\033[37m',
+        'bold': '\033[1m',
+        'italic': '\033[3m',
+        'underline': '\033[4m',
+        'highlight': '\033[7m',  # Add highlight (reverse video)
+        'reset': '\033[0m',
+        'space': ' ',  
+        'clear': '\033[0m'  # Add clear tag for resetting formatting
+    }
+
+    # Handle standalone clear tags first
+    text = text.replace('<clear>', COLORS['clear'])
+    
+    while True:
+        match = re.search(r'<([^>]+)>(.*?)</([^>]+)>', text)
+        if not match:
+            break
+        start_tag, content, end_tag = match.groups()
+        formats = [f.strip() for f in start_tag.split(',')]
+        replacement = ''
+        for fmt in formats:
+            if fmt in COLORS:
+                replacement += COLORS[fmt]
+        replacement += content + COLORS['reset']
+        text = text[:match.start()] + replacement + text[match.end():]
+    
+    text = text.replace('<reset>', COLORS['reset'])
+    return text
+
+def get_battery_percent():
+    """Get battery percentage for laptops"""
+    """I dont know how to pull battery soooo i just make it N/A, Ooopsies"""
+    try:
+        import psutil
+        battery = psutil.sensors_battery()
+        if battery:
+            return f"{int(battery.percent)}%"
+        return "N/A"
+    except:
+        return "N/A"
+
+def format_prompt(template):
+    """Format prompt template with placeholders"""
+    import datetime
+    now = datetime.datetime.now()
+    replacements = {
+        "{time}": now.strftime("%H:%M:%S"),
+        "{date}": now.strftime("%Y-%m-%d"),
+        "{username}": config.get("username", "Aero-User"),  # Use Aero username instead of system username
+        "{hostname}": os.uname().nodename,
+        "{pwd}": os.getcwd(),
+        "{battery}": get_battery_percent(),
+        "{short_pwd}": os.path.basename(os.getcwd())
+    }
+    
+    result = template
+    # Handle <space> tags before other formatting
+    result = result.replace('<space>', ' ')
+    
+    for key, value in replacements.items():
+        result = result.replace(key, str(value))
+    
+    return format_text(result)
+
+def cmd_format(args):
+    """Show formatting options and examples"""
+    print("\nText Formatting Options:")
+    print("\nColors:")
+    for color in ['red', 'green', 'blue', 'yellow', 'magenta', 'cyan', 'white']:
+        print(format_text(f"  <{color}>Example Text</{color}>"))
+    
+    print("\nFormatting:")
+    print(format_text("  <bold>Bold Text</bold>"))
+    print(format_text("  <italic>Italic Text</italic>"))
+    print(format_text("  <underline>Underlined Text</underline>"))
+    print(format_text("  <highlight>Highlighted Text</highlight>"))
+    
+    print("\nCombined Formatting:")
+    print(format_text("  <blue,bold>Blue Bold</blue,bold>"))
+    print(format_text("  <red,italic>Red Italic</red,italic>"))
+    print(format_text("  <yellow,highlight>Yellow Highlighted</yellow,highlight>"))
+    
+    print("\nPrompt Placeholders:")
+    print("  {time}      - Current time")
+    print("  {date}      - Current date")
+    print("  {username}  - System username")
+    print("  {hostname}  - Computer name")
+    print("  {pwd}       - Current directory")
+    print("  {short_pwd} - Current directory name")
+    print("  {battery}   - Battery percentage")
+    
+    print("\nExample Prompt Template:")
+    print('  "<green>{username}</green>@<blue>{hostname}</blue> <yellow>{short_pwd}</yellow> > "')
+
+COMMANDS['format'] = cmd_format
+
+# Update DEFAULT_CONFIG with prompt template
+DEFAULT_CONFIG = {
+    "color": True,
+    "username": "Aero-User",
+    "time_format": "24",
+    "colors": {
+        "prompt": "\033[32m",
+        "info": "\033[33m",
+        "error": "\033[31m",
+        "plugin": "\033[36m",
+        "reset": "\033[0m"
+    },
+    "prompt_template": "<green>{username}@{hostname}</green> <blue>{short_pwd}</blue> > "
+}
+
+def cmd_colors(args):
+    """Show available colors and formatting options"""
+    print("\nColor Examples and Usage:")
+    print("To use these in the prompt or anywhere, wrap text in tags like: <color>text</color>")
+    print("\nBasic Colors:")
+    examples = [
+        ("red", "Error Message"),
+        ("green", "Success"),
+        ("blue", "Information"),
+        ("yellow", "Warning"),
+        ("magenta", "Special"),
+        ("cyan", "Data"),
+        ("white", "Normal Text"),
+    ]
+    
+    for color, text in examples:
+        print(format_text(f"  <{color}>{text}</{color}>  ->  <{color}>{text}</{color}>"))
+    
+    print("\nText Formatting:")
+    formats = [
+        ("bold", "Bold Text"),
+        ("italic", "Italic Text"),
+        ("underline", "Underlined Text"),
+        ("highlight", "Highlighted Text"),
+    ]
+    
+    for fmt, text in formats:
+        print(format_text(f"  <{fmt}>{text}</{fmt}>  ->  <{fmt}>{text}</{fmt}>"))
+    
+    print("\nCombined Formatting:")
+    print(format_text("  <blue,bold>Blue Bold</blue,bold>  ->  <blue,bold>Blue Bold</blue,bold>"))
+    print(format_text("  <red,italic>Red Italic</red,italic>  ->  <red,italic>Red Italic</red,italic>"))
+    print(format_text("  <yellow,underline>Yellow Underline</yellow,underline>  ->  <yellow,underline>Yellow Underline</yellow,underline>"))
+    print(format_text("  <green,highlight>Green Highlighted</green,highlight>  ->  <green,highlight>Green Highlighted</green,highlight>"))
+    
+    print("\nPrompt Template Example:")
+    example = "<green,bold>{username}</green,bold>@<blue>{hostname}</blue> <yellow>{short_pwd}</yellow> > "
+    print(f"  Template: {example}")
+    print(f"  Result:  {format_prompt(example)}")
+
+COMMANDS['colors'] = cmd_colors  # Add this line
+COMMANDS['color'] = cmd_colors   # Add alias
+
+def cmd_placeholders(args):
+    """Show available placeholders and their current values"""
+    print(f"{COLOR_YELLOW}Available Placeholders:{COLOR_RESET}")
+    placeholders = {
+        "username": os.getenv("USER", "user"),
+        "hostname": os.uname().nodename,
+        "pwd": os.getcwd(),
+        "short_pwd": os.path.basename(os.getcwd()),
+        "time": datetime.datetime.now().strftime("%H:%M:%S"),
+        "date": datetime.datetime.now().strftime("%Y-%m-%d"),
+        "battery": get_battery_percent()
+    }
+    
+    # Calculate max length for alignment
+    max_length = max(len(k) for k in placeholders.keys())
+    
+    for key, value in sorted(placeholders.items()):
+        # Pad the key name for alignment
+        padded_key = f"{{{key}}}".ljust(max_length + 2)  # +2 for the braces
+        print(f"  {COLOR_CYAN}{padded_key}{COLOR_RESET} = {COLOR_GREEN}{value}{COLOR_RESET}")
+    
+    print("\nUsage in prompt template:")
+    print("  config prompt \"<green>{username}</green>@<blue>{hostname}</blue> > \"")
+    print("  config prompt \"[<cyan>{time}</cyan>] <yellow>{short_pwd}</yellow> $ \"")
+
+COMMANDS['placeholders'] = cmd_placeholders
+
+# ---------- Core Command Registration ----------
+def register_core_commands():
+    """
+    Placeholder for registering Aero's built-in core commands.
+    This ensures the function exists even if dynamic registration is added later.
+    """
+    pass
+
+
+# ---------- Entry Point ----------
+def main():
+    initialize_aero()
+    global config
+    config = load_config()
+    update_colors_from_config()
+    register_colors_for_plugins()
+    register_core_commands()
+    load_plugins()
+
+    print(format_text(f"<green>Aero Shell</green> <yellow>{__AERO_VERSION__}</yellow>"))
+    print(format_text(f"Welcome, <cyan>{config.get('username', 'Aero-User')}</cyan>! Type <yellow>help</yellow> for commands.\n"))
+
+    import subprocess, shutil
+
+    prompt_template = config.get(
+        "prompt_template",
+        "<green>{username}</green>@<blue>{hostname}</blue> <yellow>{short_pwd}</yellow> ❯ "
+    )
+
+    while True:
+        try:
+            prompt = format_prompt(prompt_template)
+            cmd_input = input(prompt).strip()
+            if not cmd_input:
+                continue
+
+            parts = shlex.split(cmd_input)
+            cmd = parts[0]
+            args = parts[1:]
+
+            if cmd in ("exit", "quit"):
+                print_colored("Exiting Aero Shell...", "warning")
+                break
+
+            if cmd in COMMANDS:
+                COMMANDS[cmd](args)
+            else:
+                # External command fallback
+                if shutil.which(cmd):
+                    try:
+                        subprocess.run(cmd_input, shell=True)
+                    except Exception as e:
+                        print_colored(f"Error running command: {e}", "error")
+                else:
+                    print_colored(f"aero: command not found: {cmd}", "error")
+
+        except KeyboardInterrupt:
+            print_colored("\nUse 'exit' or 'quit' to close Aero.", "warning")
+        except EOFError:
+            print_colored("\nGoodbye!", "plugin")
+            break
+        except Exception as e:
+            print_colored(f"Error: {e}", "error")
+
+
+if __name__ == "__main__":
+    main()
