@@ -1,4 +1,4 @@
-__PLUGIN_VERSION__ = "2.0.1"
+__PLUGIN_VERSION__ = "1.4.1"
 
 import os
 import ssl
@@ -6,258 +6,180 @@ import sys
 import urllib.request
 import json
 import shutil
-import time
+import subprocess
 
-# --- Dynamic Core Imports (Relies on constants/functions defined in the main 'aero' script) ---
-try:
-    # Ensure the core script's directory is in path (it should be, but this adds robustness)
-    AERO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    sys.path.append(AERO_DIR)
-    
-    # Import utility functions and constants from the main 'aero' file
-    from aero import (
-        print_colored, LATEST_AERO_URL, REPO_ROOT_URL, PLUGINS_DIR, 
-        LIB_DIR, REPO_PLUGINS_URL, REPO_LIBS_URL, 
-        COLOR_RED, COLOR_GREEN, COLOR_YELLOW, COLOR_CYAN, COLOR_RESET
-    )
+# Import core library functions
+import config_manager as cm
+from constants import AERO_DIR, PLUGINS_DIR, __AERO_VERSION__
+# Note: REPO_ROOT_URL is needed for full update logic, assume it's imported in constants
+# For now, hardcode API URLs as they were in the original snippet, but should ideally use constants
 
-    # Use the GitHub API base for listing files
-    GH_API_BASE = "https://api.github.com/repos/nebuff/aero/contents"
+VERSIONS_API = "https://api.github.com/repos/nebuff/aero/contents/versions"
+RAW_BASE_URL = "https://raw.githubusercontent.com/nebuff/aero/main/versions"
+PLUGINS_API = "https://api.github.com/repos/nebuff/aero/contents/plugins"
+PLUGINS_RAW_URL = "https://raw.githubusercontent.com/nebuff/aero/main/plugins"
 
-except ImportError as e:
-    # Fallback/Error state if running outside the intended environment
-    print(f"Error in updater.py import: {e}. Check main 'aero' file structure.")
-    # Exit or define minimal constants to prevent crash (omitted for brevity here)
+# --- Utility Functions ---
 
-
-# ---------- Utility Functions ----------
-
-def _fetch_github_dir_list(path_suffix):
-    """Fetches a list of files in a directory via GitHub API."""
-    url = f"{GH_API_BASE}/{path_suffix}"
+def list_versions():
+    """Lists available Aero versions from the GitHub API."""
+    context = ssl._create_unverified_context()
     try:
-        # Disable SSL verification for simple setup
-        context = ssl._create_unverified_context()
-        with urllib.request.urlopen(url, context=context) as resp:
-            data = json.loads(resp.read().decode())
-            # Filter for Python files
-            return [item['name'] for item in data if item['type'] == 'file' and item['name'].endswith('.py')]
+        with urllib.request.urlopen(VERSIONS_API, context=context) as response:
+            data = json.loads(response.read().decode())
+            versions = [item['name'] for item in data if item['type'] == 'file' and item['name'].endswith('.sh')]
+            # Remove '.sh' extension for display
+            return [v[:-3] for v in versions]
     except Exception as e:
-        print_colored(f"Error fetching directory list from {url}: {e}", "error")
+        cm.print_colored(f"Error listing versions: {e}", "error")
         return []
 
 def list_remote_plugins():
-    """List all available plugins from the remote repository."""
-    return _fetch_github_dir_list("plugins")
+    """Lists all plugin files available in the remote repository."""
+    context = ssl._create_unverified_context()
+    try:
+        with urllib.request.urlopen(PLUGINS_API, context=context) as response:
+            data = json.loads(response.read().decode())
+            return [item['name'] for item in data if item['type'] == 'file' and item['name'].endswith('.py')]
+    except Exception as e:
+        cm.print_colored(f"Error listing remote plugins: {e}", "error")
+        return []
 
-def list_remote_libs():
-    """List all available lib files from the remote repository."""
-    return _fetch_github_dir_list("lib")
-
-
-def download_file(url, destination_path):
-    """Downloads a file from a URL to a specified path."""
+def update_aero_core(version):
+    """Downloads and replaces the main 'aero' executable with a specific version."""
+    cm.print_colored(f"Starting core update to version {version}...", "info")
+    
+    # Note: This is an incomplete function as the core update logic is complex, 
+    # but the structure is preserved for the new standard.
+    
+    # 1. Download the new version installer
+    raw_url = f"{RAW_BASE_URL}/{version}.sh"
+    temp_installer_path = os.path.join(AERO_DIR, f"temp_{version}.sh")
+    
+    cm.print_colored(f"Fetching installer from {raw_url}", "info")
     try:
         context = ssl._create_unverified_context()
-        with urllib.request.urlopen(url, context=context) as response, open(destination_path, 'wb') as out_file:
-            shutil.copyfileobj(response, out_file)
-        return True
+        urllib.request.urlretrieve(raw_url, temp_installer_path, context=context)
+        os.chmod(temp_installer_path, 0o755)
     except Exception as e:
-        print_colored(f"Error downloading {url}: {e}", "error")
-        return False
-
-# ---------- Update Logic Functions ----------
-
-def update_aero_core(prompt_for_confirmation=True):
-    """Downloads and replaces the main aero executable."""
-    if prompt_for_confirmation:
-        confirm = input(f"{COLOR_YELLOW}Are you sure you want to update the core Aero executable? (y/n): {COLOR_RESET}").strip().lower()
-        if confirm != 'y':
-            print_colored("Core update cancelled.", "warning")
-            return False
-    
-    print_colored(f"Downloading latest Aero core from {LATEST_AERO_URL}...", "info")
-    aero_path = os.path.join(AERO_DIR, 'aero')
-    temp_file = os.path.join(AERO_DIR, 'aero.new')
-    
-    if download_file(LATEST_AERO_URL, temp_file):
-        try:
-            shutil.move(temp_file, aero_path)
-            os.chmod(aero_path, 0o755) # Make it executable
-            print_colored("Aero core updated successfully! Please restart Aero.", "success")
-            return True
-        except Exception as e:
-            print_colored(f"Failed to replace old core file: {e}", "error")
-            os.remove(temp_file) # Clean up temp file
-            return False
-    else:
-        print_colored("Core update failed.", "error")
-        return False
-
-def update_lib(lib_name):
-    """Update a single library file from the remote repository."""
-    lib_file = f"{lib_name}.py"
-    remote_url = f"{REPO_LIBS_URL}/{lib_file}"
-    local_path = os.path.join(LIB_DIR, lib_file)
-    
-    print_colored(f"Updating lib file: {lib_file}...", "info")
-    os.makedirs(LIB_DIR, exist_ok=True)
-    
-    if download_file(remote_url, local_path):
-        print_colored(f"Library '{lib_name}' updated successfully!", "success")
-        return True
-    else:
-        print_colored(f"Failed to update library '{lib_name}'.", "error")
-        return False
-
-def update_all_libs():
-    """Download and update all lib files from GitHub."""
-    print_colored(f"Updating all Aero libraries in {LIB_DIR}...", "cyan")
-    libs = list_remote_libs()
-    if not libs:
-        print_colored(f"No library files found in the remote repository.", "warning")
-        return False
+        cm.print_colored(f"Failed to download installer: {e}", "error")
+        return
         
-    success_count = 0
-    for lib_file in libs:
-        lib_name = lib_file[:-3] # strip .py
-        if update_lib(lib_name):
-            success_count += 1
-            
-    print_colored(f"Finished updating libraries. {success_count}/{len(libs)} updated successfully.", "green")
-    return success_count == len(libs)
+    cm.print_colored("Installer downloaded. Running update script...", "warning")
+    
+    try:
+        # Execute the new installer script to replace core files
+        # NOTE: Running an external script within a shell command can be tricky.
+        # This assumes the script handles file replacement safely.
+        subprocess.run([sys.executable, temp_installer_path], check=True, cwd=AERO_DIR)
+        
+        cm.print_colored(f"Aero successfully updated to {version}.", "success")
+        cm.print_colored("Please restart the shell to use the new version.", "warning")
+        
+    except subprocess.CalledProcessError as e:
+        cm.print_colored(f"Update script failed with return code {e.returncode}.", "error")
+    except Exception as e:
+        cm.print_colored(f"Error executing update script: {e}", "error")
+    finally:
+        # Clean up the temporary installer
+        if os.path.exists(temp_installer_path):
+            os.remove(temp_installer_path)
 
 
 def update_plugin(plugin_name):
-    """Download and update a single plugin from the remote repository."""
+    """Downloads and replaces a single plugin file."""
     plugin_file = f"{plugin_name}.py"
-    remote_url = f"{REPO_PLUGINS_URL}/{plugin_file}"
+    raw_url = f"{PLUGINS_RAW_URL}/{plugin_file}"
     local_path = os.path.join(PLUGINS_DIR, plugin_file)
     
-    print_colored(f"Updating plugin file: {plugin_file}...", "info")
-    os.makedirs(PLUGINS_DIR, exist_ok=True)
+    cm.print_colored(f"Updating plugin '{plugin_name}'...", "info")
     
-    if download_file(remote_url, local_path):
-        print_colored(f"Plugin '{plugin_name}' updated successfully!", "success")
-        return True
-    else:
-        print_colored(f"Failed to update plugin '{plugin_name}'.", "error")
-        return False
+    try:
+        context = ssl._create_unverified_context()
+        urllib.request.urlretrieve(raw_url, local_path, context=context)
+        cm.print_colored(f"Plugin '{plugin_name}' updated successfully!", "success")
+    except Exception as e:
+        cm.print_colored(f"Failed to update plugin '{plugin_name}': {e}", "error")
+
 
 def update_all_plugins():
     """Download and update all plugins from GitHub"""
-    print_colored(f"Updating all official Aero plugins in {PLUGINS_DIR}...", "cyan")
+    cm.print_colored("Updating all Aero plugins...", "data_primary")
     plugins = list_remote_plugins()
     if not plugins:
-        print_colored(f"No official plugins found in the remote repository.", "warning")
-        return False
-        
-    success_count = 0
-    for plugin_file in plugins:
-        plugin_name = plugin_file[:-3]  # strip .py
-        if update_plugin(plugin_name):
-            success_count += 1
-
-    print_colored(f"Finished updating plugins. {success_count}/{len(plugins)} updated successfully. Run 'refresh' to reload them.", "green")
-    return success_count == len(plugins)
-
-
-def reinstall_no_config():
-    """Reinstalls core, libs, and plugins while preserving configuration, themes, and existing plugins."""
-    print_colored("--- Full Reinstallation (Preserving Configs, Plugins, Themes) ---", "header")
-    print_colored("This will update the Aero core executable, all libraries, and all official plugins. Your config.json and custom files will be kept.", "warning")
-    
-    confirm = input(f"{COLOR_YELLOW}Proceed with full reinstall? (y/n): {COLOR_RESET}").strip().lower()
-    if confirm != 'y':
-        print_colored("Reinstallation cancelled.", "info")
+        cm.print_colored("No plugins found in the remote repository.", "error")
         return
 
-    # 1. Update Core (No prompt needed here)
-    print_colored("\n--- Updating Aero Core ---", "subheader")
-    update_aero_core(prompt_for_confirmation=False)
-
-    # 2. Update Libraries
-    print_colored("\n--- Updating Libraries ---", "subheader")
-    update_all_libs()
-
-    # 3. Update All Plugins (to update official plugins)
-    print_colored("\n--- Updating Official Plugins ---", "subheader")
-    update_all_plugins()
-    
-    print_colored("\nReinstallation complete! Please restart Aero to load the new core and libraries.", "success")
+    for plugin_file in plugins:
+        plugin_name = plugin_file[:-3]  # strip .py
+        update_plugin(plugin_name)
+        
+    cm.print_colored("All plugins updated! Restart Aero or run 'refresh' to reload them.", "success")
 
 
 # ---------- Main Update Command ----------
 def update_cmd(args):
-    """Update Aero, its plugins, or libraries."""
-    
-    # --- NO ARGUMENTS: Default Update (Core + Libs) ---
-    if not args:
-        print_colored("--- Aero Core and Library Update ---", "header")
-        print_colored("This will update the main 'aero' executable and all files in the 'lib/' directory.", "info")
-        if update_aero_core():
-            update_all_libs()
-        return
-
-    subcommand = args[0].lower()
-    
-    if subcommand in ("help", "-h", "--help"):
+    """Update Aero or its plugins"""
+    if args and args[0] in ("help", "-h", "--help"):
         print_help()
         return
 
-    # --- Reinstall Command ---
-    elif subcommand == "reinstall":
-        reinstall_no_config()
-        return
-
-    # --- Core Command ---
-    elif subcommand == "core":
-        print_colored("--- Aero Core Update Only ---", "header")
-        update_aero_core()
-        return
-
-    # --- Library Commands ---
-    elif subcommand == "lib":
-        if len(args) > 1:
-            # update lib <name>: Update a specific library
-            lib_name = args[1]
-            print_colored(f"--- Updating specific library: {lib_name} ---", "header")
-            update_lib(lib_name)
-        else:
-            # update lib: Update all libraries
-            print_colored("--- Updating All Libraries ---", "header")
-            update_all_libs()
-        return
-        
-    # --- Plugin Commands ---
-    elif subcommand == "plugins":
-        update_all_plugins()
-        return
-        
-    elif subcommand == "plugin":
-        if len(args) < 2:
-            print_colored("Usage: update plugin <name>", "error")
+    if not args or args[0] == "check":
+        # No args or 'check': show available Aero versions
+        versions = list_versions()
+        if not versions:
+            cm.print_colored("No versions found in repository.", "error")
             return
+
+        cm.print_colored("Available Aero Versions (Current: {cm.colorize(__AERO_VERSION__, 'success')}):", "header")
+        for v in versions:
+            cm.print_colored(f"  - {v}", "info")
+        
+        if args and args[0] == "check":
+            return
+            
+        print()
+        cm.print_colored("Type the version name you want to install (e.g. aero-beta-2.1.3):", "data_primary")
+        selected = input("> ").strip()
+        if not selected:
+            cm.print_colored("Update cancelled.", "warning")
+            return
+        
+        if selected in versions:
+            update_aero_core(selected)
+        else:
+            cm.print_colored(f"Error: Unknown version '{selected}'.", "error")
+
+    elif args[0].lower() == "plugins":
+        update_all_plugins()
+        
+    elif args[0].lower() == "plugin" and len(args) > 1:
         update_plugin(args[1])
-        return
-
-    # --- Fallback ---
+        
+    elif len(args) == 1 and args[0].startswith("aero-"):
+        # Specific version requested
+        update_aero_core(args[0])
+        
     else:
-        print_colored(f"Unknown update command: '{subcommand}'.", "error")
-        print_colored("Run 'update help' for available options.", "info")
-        return
+        cm.print_colored(f"Unknown update command or arguments: {' '.join(args)}", "error")
+        print_help()
 
 
-# ---------- Help Function ----------
+# ---------- Utility ----------
 def print_help():
-    print(f"{COLOR_YELLOW}Aero Update Command Help:{COLOR_RESET}")
-    print(f"  {COLOR_GREEN}update{COLOR_RESET}             - Update the main core executable AND all libraries ('lib/') after confirmation.")
-    print(f"  {COLOR_GREEN}update core{COLOR_RESET}        - Update ONLY the main core executable ('aero').")
-    print(f"  {COLOR_GREEN}update lib [name]{COLOR_RESET}  - Update all libraries, or a specific library (e.g., 'update lib config_manager').")
-    print(f"  {COLOR_GREEN}update plugins{COLOR_RESET}     - Update all official plugins to their latest remote versions.")
-    print(f"  {COLOR_GREEN}update plugin <name>{COLOR_RESET} - Update a specific plugin (e.g. 'update plugin color').")
-    print(f"  {COLOR_GREEN}update reinstall{COLOR_RESET}   - Reinstall core, libs, and plugins, preserving config/themes/custom plugins.")
+    """Displays help for the updater command."""
+    cm.print_colored("Aero Update Command Help:", "subheader")
+    help_text = {
+        "update": "List available versions and update interactively.",
+        "update <version>": "Install a specific core version (e.g. aero-beta-2.1.3).",
+        "update check": "Show available versions only.",
+        "update plugins": "Update all installed plugins.",
+        "update plugin <name>": "Update a specific plugin (e.g. update plugin color).",
+    }
+    
+    for cmd, desc in help_text.items():
+        print(f"  {cm.colorize(cmd, 'data_primary'):<25} - {desc}")
 
-
-def register(COMMANDS):
+def register_plugin_commands(COMMANDS):
+    """Registers the 'update' command."""
     COMMANDS["update"] = update_cmd
