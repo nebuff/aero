@@ -1,0 +1,37 @@
+# Example Config JSON
+{
+  "color": true,
+  "username": "AeroUser",
+  "colors": {
+    "prompt": "\u001b[32m",
+    "info": "\u001b[33m",
+    "error": "\u001b[31m",
+    "plugin": "\u001b[36m",
+    "reset": "\u001b[0m",
+    "success": "\u001b[32m",
+    "warning": "\u001b[33m",
+    "plugin_output": "\u001b[37m",
+    "plugin_error": "\u001b[91m",
+    "plugin_success": "\u001b[92m",
+    "header": "\u001b[1;36m",
+    "subheader": "\u001b[1;33m",
+    "border": "\u001b[90m",
+    "highlight": "\u001b[1;37m",
+    "dim": "\u001b[2;37m",
+    "data_primary": "\u001b[36m",
+    "data_secondary": "\u001b[35m",
+    "data_value": "\u001b[37m",
+    "data_key": "\u001b[33m",
+    "status_online": "\u001b[92m",
+    "status_offline": "\u001b[91m",
+    "status_pending": "\u001b[93m",
+    "status_unknown": "\u001b[90m",
+    "bold": "\u001b[1m",
+    "italic": "\u001b[3m",
+    "underline": "\u001b[4m",
+    "strikethrough": "\u001b[9m",
+    "highlight_format": "\u001b[7m"
+  },
+  "time_format": "24",
+  "prompt_template": "<green>{username}@{hostname}</green> <blue>{short_pwd}</blue> > "
+}
