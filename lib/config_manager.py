@@ -31,72 +31,74 @@ DEFAULT_COLORS = {
     "data_value": "\033[37m",   # White
     "prompt_text": "\033[92m",  # Light Green
 }
-# Global cache for color codes after loading config
-COLOR_MAP = DEFAULT_COLORS.copy()
+# Global cache for color codes after loading config.
+COLOR_MAP = DEFAULT_COLORS
 
+
+# --- Configuration Loading ---
 
 def load_config():
-    """Loads configuration from config.json into the global CONFIG and COLOR_MAP."""
-    global CONFIG, COLOR_MAP
+    """
+    Loads configuration from config.json into the global CONFIG dictionary
+    and updates the COLOR_MAP.
+    """
+    global CONFIG
+    global COLOR_MAP
     
-    # Define a default configuration
-    default_config = {
-        "color": True,
-        "username": os.getenv("USER", "Aero-User"),
-        "time_format": "%H:%M:%S",
-        "active_theme": "default",
-        "prompt_template": "<green>{username}</green>@<blue>{hostname}</blue> <yellow>{short_pwd}</yellow> ❯ ",
-        "colors": DEFAULT_COLORS
-    }
-
+    if not os.path.exists(CONFIG_PATH):
+        # Fallback to defaults if file is missing (should be created by initialize_aero)
+        from constants import DEFAULT_CONFIG # Import only when needed to avoid circular dep
+        CONFIG = DEFAULT_CONFIG.copy()
+        
     try:
         with open(CONFIG_PATH, 'r') as f:
-            loaded_config = json.load(f)
-            # Merge loaded config with defaults (in case new keys were added)
-            CONFIG = default_config
-            CONFIG.update(loaded_config)
-            
-    except FileNotFoundError:
-        print(f"\033[33mWarning: {CONFIG_PATH} not found. Creating with default settings.\033[0m")
-        CONFIG = default_config
-        save_config(CONFIG)
-    except json.JSONDecodeError:
-        print(f"\033[31mError: {CONFIG_PATH} contains invalid JSON. Using default settings.\033[0m")
-        CONFIG = default_config
-        save_config(CONFIG)
+            CONFIG.update(json.load(f))
     except Exception as e:
-        print(f"\033[31mError loading config: {e}. Using default settings.\033[0m")
-        CONFIG = default_config
-        
-    # Update the global COLOR_MAP from the loaded configuration
-    COLOR_MAP = CONFIG.get("colors", DEFAULT_COLORS).copy()
+        print(f"Warning: Could not load config.json: {e}", file=sys.stderr)
+        # If loading fails, ensure we still have a basic config
+        if not CONFIG:
+            from constants import DEFAULT_CONFIG
+            CONFIG = DEFAULT_CONFIG.copy()
 
-
-def save_config(new_config=None):
-    """Saves the current global configuration back to config.json."""
-    global CONFIG
-    if new_config:
-        CONFIG = new_config
+    # Update color map if color config is present
+    if CONFIG.get("color", True) and "colors" in CONFIG:
+        # Merge defaults and user defined colors
+        COLOR_MAP = DEFAULT_COLORS.copy()
+        COLOR_MAP.update(CONFIG["colors"])
         
+    # Ensure all required core keys are present for fallback safety
+    if "reset" not in COLOR_MAP:
+        COLOR_MAP["reset"] = "\033[0m"
+    if "warning" not in COLOR_MAP:
+        COLOR_MAP["warning"] = DEFAULT_COLORS["warning"]
+
+    # Add the current Aero version to the config cache
     try:
-        with open(CONFIG_PATH, 'w') as f:
-            # Ensure colors are written as plain strings (not string literals)
-            json.dump(CONFIG, f, indent=2)
-        return True
-    except Exception as e:
-        print_colored(f"Error saving config: {e}", "error")
-        return False
+        from constants import __AERO_VERSION__
+        CONFIG["aero_version"] = __AERO_VERSION__
+    except NameError:
+        # Fallback if __AERO_VERSION__ is not defined
+        CONFIG["aero_version"] = "unknown"
 
-def get_config(key=None):
-    """Returns the entire config dictionary or a specific key's value."""
-    if key:
-        return CONFIG.get(key)
     return CONFIG
+
+
+def get_config(key, default=None):
+    """Retrieves a configuration value."""
+    # Ensure config is loaded if this is the first call
+    if not CONFIG:
+        load_config()
+    return CONFIG.get(key, default)
+
 
 # --- Utility Functions ---
 
-def colorize(text, color_key):
-    """Applies ANSI color codes to text based on the color map."""
+def colorize(text, color_key="info"):
+    """Wraps text with ANSI color codes based on color_key."""
+    # Ensure config is loaded
+    if not CONFIG:
+        load_config()
+        
     if not CONFIG.get("color", True):
         return text
     
@@ -115,9 +117,41 @@ def format_prompt(template):
     username = CONFIG.get("username", "user")
     time_str = datetime.datetime.now().strftime(CONFIG.get("time_format", "%H:%M:%S"))
     hostname = socket.gethostname().split('.')[0]
-    full_pwd = os.getcwd()
-    # Get the last component of the path for 'short_pwd'
-    short_pwd = os.path.basename(full_pwd) or "/" 
+
+    # --- Start Fix: Handle PermissionError for os.getcwd() on systems like macOS TCC ---
+    home_dir = os.path.expanduser("~")
+    current_path_name = "/" # Default for short_pwd
+    full_path = "/"
+    
+    try:
+        # Get the current working directory. This is the line that can fail.
+        full_path = os.getcwd()
+        
+        # Get the last component of the path for 'short_pwd' (original logic)
+        current_path_name = os.path.basename(full_path) or "/"
+        
+        # If the full path is the home directory, show ~
+        if full_path == home_dir:
+            current_path_name = "~"
+            
+    except PermissionError:
+        # Graceful fallback if os.getcwd() fails due to macOS TCC/PermissionError
+        print_colored(
+            "Warning: Operation not permitted. Check terminal permissions (macOS TCC). Prompt path will show as '[Denied]'.", 
+            "warning"
+        )
+        current_path_name = "[Denied]"
+        full_path = "[Denied]"
+    except Exception as e:
+        # General error handling
+        print_colored(f"Warning: Failed to get CWD: {e}", "warning")
+        current_path_name = "[Error]"
+        full_path = "[Error]"
+
+    # Map the results to the expected variables
+    full_pwd = full_path
+    short_pwd = current_path_name
+    # --- End Fix ---
 
     # 2. Prepare color replacement map
     # This uses a simple regex-like replacement for tags like <color>text</color>
@@ -137,10 +171,8 @@ def format_prompt(template):
         time_str=time_str,
         hostname=hostname,
         full_pwd=full_pwd,
-        short_pwd=short_pwd
+        # Get the last component of the path for 'short_pwd'
+        short_pwd=short_pwd,
     )
-
-    return formatted_prompt
     
-# Initialize config on module load
-load_config()
+    return formatted_prompt
