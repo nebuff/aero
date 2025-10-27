@@ -1,206 +1,146 @@
 import json
 import os
-import re
-import sys
 import datetime
+import socket
 
-# Import constants
-from constants import CONFIG_PATH, DEFAULT_CONFIG
-# Import core utilities
-import core
+# Attempt to import constants from the new location
+try:
+    # We must try/except here for local testing, though in runtime it should work
+    from constants import CONFIG_PATH, __AERO_VERSION__
+except ImportError:
+    # Fallback if constants is not yet defined (just for robustness)
+    CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json")
 
-# --- Module-level config variable ---
-# This dictionary will hold the loaded configuration.
-# All functions in this module will read from/write to this variable.
-config = {}
+
+# Global cache for configuration settings
+CONFIG = {}
+# Default ANSI color codes mapped to configuration keys
+DEFAULT_COLORS = {
+    "reset": "\033[0m",
+    # Main UI elements
+    "success": "\033[32m",      # Green
+    "warning": "\033[33m",      # Yellow
+    "error": "\033[31m",        # Red
+    "info": "\033[36m",         # Cyan
+    "header": "\033[1;36m",     # Bold Cyan
+    "subheader": "\033[1;33m",  # Bold Yellow
+    "dim": "\033[2;37m",        # Dim White
+    # Prompt and data
+    "data_primary": "\033[34m", # Blue
+    "data_secondary": "\033[35m", # Magenta
+    "data_value": "\033[37m",   # White
+    "prompt_text": "\033[92m",  # Light Green
+}
+# Global cache for color codes after loading config
+COLOR_MAP = DEFAULT_COLORS.copy()
+
 
 def load_config():
-    """Loads config.json into the module-level 'config' variable."""
-    global config
-    if not os.path.isfile(CONFIG_PATH):
-        config = DEFAULT_CONFIG.copy()
-        return
-        
+    """Loads configuration from config.json into the global CONFIG and COLOR_MAP."""
+    global CONFIG, COLOR_MAP
+    
+    # Define a default configuration
+    default_config = {
+        "color": True,
+        "username": os.getenv("USER", "Aero-User"),
+        "time_format": "%H:%M:%S",
+        "active_theme": "default",
+        "prompt_template": "<green>{username}</green>@<blue>{hostname}</blue> <yellow>{short_pwd}</yellow> ❯ ",
+        "colors": DEFAULT_COLORS
+    }
+
     try:
-        with open(CONFIG_PATH, "r") as f:
+        with open(CONFIG_PATH, 'r') as f:
             loaded_config = json.load(f)
-        
-        # Track if we need to save updated config
-        config_updated = False
-        
-        # Ensure all default values exist
-        for key, value in DEFAULT_CONFIG.items():
-            if key not in loaded_config:
-                loaded_config[key] = value
-                config_updated = True
-            if key == "colors" and isinstance(value, dict):
-                if "colors" not in loaded_config:
-                     loaded_config["colors"] = {}
-                for color_key, color_value in value.items():
-                    if color_key not in loaded_config["colors"]:
-                        loaded_config["colors"][color_key] = color_value
-                        config_updated = True
-        
-        config = loaded_config
-        
-        # Save updated config if new colors/keys were added
-        if config_updated:
-            try:
-                with open(CONFIG_PATH, "w") as f:
-                    json.dump(config, f, indent=2)
-                print(f"{core.COLOR_GREEN}Updated config.json with new options{core.COLOR_RESET}")
-            except Exception as e:
-                print(f"{core.COLOR_RED}Failed to update config.json: {e}{core.COLOR_RESET}", file=sys.stderr)
-                        
-    except Exception:
-        config = DEFAULT_CONFIG.copy()
-
-def save_config():
-    """Saves the current module-level 'config' variable to config.json."""
-    global config
-    try:
-        with open(CONFIG_PATH, "w") as f:
-            json.dump(config, f, indent=2)
+            # Merge loaded config with defaults (in case new keys were added)
+            CONFIG = default_config
+            CONFIG.update(loaded_config)
+            
+    except FileNotFoundError:
+        print(f"\033[33mWarning: {CONFIG_PATH} not found. Creating with default settings.\033[0m")
+        CONFIG = default_config
+        save_config(CONFIG)
+    except json.JSONDecodeError:
+        print(f"\033[31mError: {CONFIG_PATH} contains invalid JSON. Using default settings.\033[0m")
+        CONFIG = default_config
+        save_config(CONFIG)
     except Exception as e:
-        print(f"Failed to save config: {e}", file=sys.stderr)
+        print(f"\033[31mError loading config: {e}. Using default settings.\033[0m")
+        CONFIG = default_config
+        
+    # Update the global COLOR_MAP from the loaded configuration
+    COLOR_MAP = CONFIG.get("colors", DEFAULT_COLORS).copy()
 
-def get_config():
-    """Returns the loaded configuration dictionary."""
-    global config
-    return config
 
-# --- Color and Formatting Functions ---
+def save_config(new_config=None):
+    """Saves the current global configuration back to config.json."""
+    global CONFIG
+    if new_config:
+        CONFIG = new_config
+        
+    try:
+        with open(CONFIG_PATH, 'w') as f:
+            # Ensure colors are written as plain strings (not string literals)
+            json.dump(CONFIG, f, indent=2)
+        return True
+    except Exception as e:
+        print_colored(f"Error saving config: {e}", "error")
+        return False
 
-def get_color(key):
-    """Get a color code by key. Returns empty string if colors are disabled."""
-    global config
-    if config.get("color", True):
-        return config.get("colors", {}).get(key, "")
-    return ""
+def get_config(key=None):
+    """Returns the entire config dictionary or a specific key's value."""
+    if key:
+        return CONFIG.get(key)
+    return CONFIG
+
+# --- Utility Functions ---
 
 def colorize(text, color_key):
-    """Colorize text with a specific color key."""
-    if not config.get("color", True):
+    """Applies ANSI color codes to text based on the color map."""
+    if not CONFIG.get("color", True):
         return text
-    color = get_color(color_key)
-    reset = get_color("reset")
-    return f"{color}{text}{reset}"
+    
+    color_code = COLOR_MAP.get(color_key, COLOR_MAP["reset"])
+    reset_code = COLOR_MAP["reset"]
+    return f"{color_code}{text}{reset_code}"
 
-def print_colored(text, color_key):
-    """Print text with a specific color."""
+def print_colored(text, color_key="info"):
+    """Prints text with the specified color."""
     print(colorize(text, color_key))
 
-def get_color_palette():
-    """Get all available color categories for plugins."""
-    return {
-        "core": ["prompt", "info", "error", "success", "warning", "reset"],
-        "plugin": ["plugin", "plugin_output", "plugin_error", "plugin_success"],
-        "ui": ["header", "subheader", "border", "highlight", "dim"],
-        "data": ["data_primary", "data_secondary", "data_value", "data_key"],
-        "status": ["status_online", "status_offline", "status_pending", "status_unknown"],
-        "format": ["bold", "italic", "underline", "strikethrough"]
-    }
-
-def register_colors_for_plugins():
-    """
-    Register color functions in a way that plugins can import them.
-    This injects them into the main script's global scope.
-    """
-    try:
-        # This is a bit of Python magic. It gets the main script's
-        # global scope and adds these functions to it.
-        main_globals = sys.modules['__main__'].__dict__
-        main_globals['aero_get_color'] = get_color
-        main_globals['aero_colorize'] = colorize
-        main_globals['aero_print_colored'] = print_colored
-        main_globals['aero_get_color_palette'] = get_color_palette
-    except Exception as e:
-        print_colored(f"Warning: Could not register color functions for plugins: {e}", "warning")
-
-
-def format_text(text):
-    """Convert <color>text</color> tags to ANSI codes"""
-    import re
-    COLORS = {
-        'black': '\033[30m',
-        'red': '\033[31m',
-        'green': '\033[32m',
-        'yellow': '\033[33m',
-        'blue': '\033[34m',
-        'magenta': '\033[35m',
-        'cyan': '\033[36m',
-        'aqua': '\033[36m',  # Add aqua as alias for cyan
-        'white': '\033[37m',
-        'bold': '\033[1m',
-        'italic': '\033[3m',
-        'underline': '\033[4m',
-        'highlight': '\033[7m',  # Add highlight (reverse video)
-        'reset': '\033[0m',
-        'space': ' ',  
-        'clear': '\033[0m'  # Add clear tag for resetting formatting
-    }
-
-    if not config.get("color", True):
-        # If colors are off, just strip the tags
-        text = re.sub(r'<[^>]+>', '', text)
-        return text.replace('<space>', ' ')
-
-    # Handle standalone clear tags first
-    text = text.replace('<clear>', COLORS['clear'])
-    
-    # Use a non-greedy regex to find the innermost tags first
-    while True:
-        match = re.search(r'<([^>]+)>(.*?)</\1>', text, re.DOTALL)
-        if not match:
-            break
-        
-        start_tag, content = match.groups()
-        
-        # Check for nested tags (if so, process them first)
-        if re.search(r'<[^>]+>', content):
-             # Find a tag that is not the one we just matched
-            nested_match = re.search(r'<(?!" + re.escape(start_tag) + r")[^>]+>(.*?)</[^>]+>', content, re.DOTALL)
-            if nested_match:
-                # Process inner tag first
-                text = text.replace(content, format_text(content))
-                continue # Re-run the outer loop
-
-        formats = [f.strip() for f in start_tag.split(',')]
-        replacement = ''
-        for fmt in formats:
-            if fmt in COLORS:
-                replacement += COLORS[fmt]
-        
-        replacement += content + COLORS['reset']
-        text = text[:match.start()] + replacement + text[match.end():]
-
-    text = text.replace('<reset>', COLORS['reset'])
-    text = text.replace('<space>', ' ')
-    return text
-
 def format_prompt(template):
-    """Format prompt template with placeholders"""
-    global config
-    now = datetime.datetime.now()
+    """Formats the prompt template with dynamic values and color tags."""
     
-    # Use 12-hour or 24-hour time based on config
-    time_format_str = "%H:%M:%S"
-    if config.get("time_format", "24") == "12":
-        time_format_str = "%I:%M:%S %p"
-        
-    replacements = {
-        "{time}": now.strftime(time_format_str),
-        "{date}": now.strftime("%Y-%m-%d"),
-        "{username}": config.get("username", "Aero-User"),
-        "{hostname}": os.uname().nodename,
-        "{pwd}": os.getcwd(),
-        "{battery}": core.get_battery_percent(),
-        "{short_pwd}": os.path.basename(os.getcwd())
-    }
+    # 1. Prepare dynamic values
+    username = CONFIG.get("username", "user")
+    time_str = datetime.datetime.now().strftime(CONFIG.get("time_format", "%H:%M:%S"))
+    hostname = socket.gethostname().split('.')[0]
+    full_pwd = os.getcwd()
+    # Get the last component of the path for 'short_pwd'
+    short_pwd = os.path.basename(full_pwd) or "/" 
+
+    # 2. Prepare color replacement map
+    # This uses a simple regex-like replacement for tags like <color>text</color>
     
-    result = template
+    colored_template = template
     
-    for key, value in replacements.items():
-        result = result.replace(key, str(value))
+    # Replace <color> tags with ANSI codes
+    for color_name, color_code in COLOR_MAP.items():
+        # Open tag replacement: <color> -> ANSI code
+        colored_template = colored_template.replace(f"<{color_name}>", color_code)
+        # Close tag replacement: </color> -> RESET code
+        colored_template = colored_template.replace(f"</{color_name}>", COLOR_MAP["reset"])
+
+    # 3. Apply dynamic values
+    formatted_prompt = colored_template.format(
+        username=username,
+        time_str=time_str,
+        hostname=hostname,
+        full_pwd=full_pwd,
+        short_pwd=short_pwd
+    )
+
+    return formatted_prompt
     
-    return format_text(result)
+# Initialize config on module load
+load_config()
