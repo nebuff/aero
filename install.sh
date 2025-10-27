@@ -8,6 +8,7 @@ AERO_TMP="/tmp/aero_tmp_exec"
 clear
 echo "Aero Installer <-> By Nebuff"
 echo
+echo "Using Python: $(detect_python)"
 
 # Prevent running from inside the install directory
 case "$PWD" in
@@ -44,106 +45,159 @@ detect_python() {
     echo "$python_cmd"
 }
 
-# Function to add to shell config
+# Function to clone and list versions
+list_versions() {
+    echo "Cloning into '$INSTALL_DIR'..."
+    if [ -d "$INSTALL_DIR" ]; then
+        echo "Removing existing directory: $INSTALL_DIR"
+        rm -rf "$INSTALL_DIR"
+    fi
+    # Clone the repository
+    git clone --depth 1 "$REPO_URL" "$INSTALL_DIR"
+    
+    # Fetch all tags to list versions
+    (cd "$INSTALL_DIR" && git fetch --tags > /dev/null 2>&1)
+    
+    # Extract tags and categorize
+    TAGS=$(git -C "$INSTALL_DIR" tag -l --sort=-v:refname)
+    
+    PRE_RELEASE=()
+    BETA=()
+    STABLE=()
+    
+    for tag in $TAGS; do
+        if [[ "$tag" == aero-pre-* ]]; then
+            PRE_RELEASE+=("$tag")
+        elif [[ "$tag" == aero-beta-* ]]; then
+            BETA+=("$tag")
+        elif [[ "$tag" == aero-stable-* ]]; then
+            STABLE+=("$tag")
+        fi
+    done
+    
+    # Print the lists
+    echo
+    echo "- Pre Release -"
+    for v in "${PRE_RELEASE[@]}"; do echo "$v"; done
+    
+    echo
+    echo "- Beta -"
+    for v in "${BETA[@]}"; do echo "$v"; done
+    
+    echo
+    echo "- Stables (Recomended) -"
+    for v in "${STABLE[@]}"; do echo "$v"; done
+    echo
+}
+
+# Function to handle version selection
+select_version() {
+    local selected_version
+    local tags
+    
+    tags=$(git -C "$INSTALL_DIR" tag -l)
+
+    while true; do
+        # --- MODIFIED PROMPT ---
+        echo "Type the version you want to install (e.g. aero-stable-1.0) or press ENTER for latest Main Branch:"
+        read -r selected_version
+        
+        # --- NEW LOGIC: Install Main Branch ---
+        if [ -z "$selected_version" ] || [ "$selected_version" == "aero" ]; then
+            echo "Installing latest version from Main Branch..."
+            # The files are already cloned in $INSTALL_DIR, we just need to move aero.py
+            # The name of the file to run the shell is 'aero.py' in the main branch
+            if [ -f "$INSTALL_DIR/aero.py" ]; then
+                # Move the executable into a temporary file for processing
+                mv "$INSTALL_DIR/aero.py" "$AERO_TMP"
+                echo "Successfully selected latest Main Branch."
+                return 0
+            else
+                echo "Error: aero.py not found in the cloned repository root. Cannot install Main Branch."
+                exit 1
+            fi
+        # --- Existing Tag Logic ---
+        elif echo "$tags" | grep -q "^$selected_version$"; then
+            echo "Installing version $selected_version..."
+            
+            # Checkout the specific version tag
+            (cd "$INSTALL_DIR" && git checkout "$selected_version" > /dev/null 2>&1)
+            
+            # Check for the existence of the aero.py in the checked out tag
+            if [ -f "$INSTALL_DIR/aero.py" ]; then
+                 # Move the executable into a temporary file for processing
+                mv "$INSTALL_DIR/aero.py" "$AERO_TMP"
+                return 0
+            else
+                echo "Error: aero.py not found in the tag '$selected_version'. Reverting to main."
+                (cd "$INSTALL_DIR" && git checkout main > /dev/null 2>&1)
+                continue
+            fi
+        else
+            echo "Version not found."
+            # The list of versions is already shown, so we just ask again
+        fi
+    done
+}
+
+# Function to add $HOME/aero to PATH
 add_to_shell_config() {
     local config_file="$1"
     local shell_type="$2"
-    
-    # Ensure the file exists
-    touch "$config_file"
-    
-    case "$shell_type" in
-        "fish")
-            # Fish shell configuration
-            if ! grep -q "set -gx PATH \$HOME/aero \$PATH" "$config_file" 2>/dev/null; then
-                echo "set -gx PATH \$HOME/aero \$PATH" >> "$config_file"
-                echo "Added Aero to PATH in $config_file"
-            fi
-            # Remove existing alias and add new one
-            sed -i.bak '/alias aero/d' "$config_file" 2>/dev/null || true
-            echo "alias aero='$PYTHON_PATH $INSTALL_DIR/aero'" >> "$config_file"
-            ;;
-        *)
-            # Bash/Zsh configuration
-            if ! grep -E '^[^#]*export PATH="\$HOME/aero:\$PATH"' "$config_file" >/dev/null 2>&1; then
-                echo 'export PATH="$HOME/aero:$PATH"' >> "$config_file"
-                echo "Added Aero to PATH in $config_file"
-            fi
-            # Remove existing alias and add new one
-            sed -i.bak '/alias aero=/d' "$config_file" 2>/dev/null || true
-            echo "alias aero='$PYTHON_PATH $INSTALL_DIR/aero'" >> "$config_file"
-            ;;
-    esac
-    
-    echo "Updated alias in $config_file"
-}
+    local path_to_add="$INSTALL_DIR"
+    local export_line
+    local source_line
 
-# Check for existing install
-if [ -d "$INSTALL_DIR" ]; then
-    echo "Looks like theres Already a Aero Install, Want to Reinstall or Update? (y/n)"
-    read -r yn
-    if [ "$yn" != "y" ]; then
-        echo "Exiting installer."
-        exit 0
+    if [ "$shell_type" == "fish" ]; then
+        # Fish uses set -gx and does not use source ~/.profile
+        export_line="set -gx PATH \$HOME/aero \$PATH"
+    else
+        # POSIX compliant (bash/zsh)
+        export_line="export PATH=\$HOME/aero:\$PATH"
+        source_line="# Source Aero completion scripts here if they exist"
     fi
-fi
 
-# Detect Python before proceeding
-PYTHON_PATH=$(detect_python)
-echo "Using Python: $PYTHON_PATH"
+    echo
+    echo "--- Updating $config_file ---"
 
-# Clone the repo
-git clone "$REPO_URL" "$INSTALL_DIR" || { echo "Failed to clone repo."; exit 1; }
-
-# Find available versions
-cd "$VERSIONS_DIR" || { echo "No versions directory found."; exit 1; }
-
-echo
-echo "- Pre Release -"
-ls aero-pre-* 2>/dev/null | head -10
-echo
-echo "- Beta -"
-ls aero-beta-* 2>/dev/null | head -10
-echo
-echo "- Stables (Recomended) -"
-ls aero-stable-* 2>/dev/null | head -10
-echo
-
-echo "Type the version you want to install (e.g. aero-stable-1.0):"
-read -r version
-
-if [ ! -f "$version" ]; then
-    echo "Version not found."
-    exit 1
-fi
-
-# Move selected executable to /tmp
-cp "$version" "$AERO_TMP"
-
-# Remove everything in aero folder
-cd "$HOME"
-rm -rf "$INSTALL_DIR"/*
-
-# Recreate directories
-mkdir -p "$INSTALL_DIR"
-mkdir -p "$INSTALL_DIR/plugins"
-
-# Create default config.json if not exists
-if [ ! -f "$INSTALL_DIR/config.json" ]; then
-    cat > "$INSTALL_DIR/config.json" <<EOF
-{
-  "color": true,
-  "username": "Aero-User",
-  "colors": {
-    "prompt": "\\u001b[32m",
-    "info": "\\u001b[33m",
-    "error": "\\u001b[31m",
-    "plugin": "\\u001b[36m",
-    "reset": "\\u001b[0m"
-  }
+    if grep -q "# Aero Shell Path" "$config_file"; then
+        echo "Aero PATH already configured in $config_file."
+    else
+        echo "Adding Aero PATH to $config_file..."
+        {
+            echo ""
+            echo "# Aero Shell Path"
+            echo "$export_line"
+            if [ "$shell_type" != "fish" ]; then
+                echo "$source_line"
+            fi
+        } >> "$config_file"
+        echo "Updated."
+    fi
 }
-EOF
+
+# --- Main Execution Flow ---
+
+# 1. Detect Python
+PYTHON_CMD=$(detect_python)
+echo "Python: $PYTHON_CMD"
+
+# 2. Clone and List Versions
+list_versions
+
+# 3. Select Version (NEW LOGIC)
+select_version
+
+# 4. Prepare the final executable
+# The executable is now in $AERO_TMP
+# We check the shebang and prepend it if missing
+if ! head -n 1 "$AERO_TMP" | grep -q "#!/"; then
+    echo "#!$PYTHON_CMD" | cat - "$AERO_TMP" > "$AERO_TMP.new"
+    mv "$AERO_TMP.new" "$AERO_TMP"
+    echo "Added shebang to executable."
 fi
+# The new logic copies the main code file (aero.py) to a temp location.
+# The core library is in $INSTALL_DIR/lib.
 
 # Move executable back and rename to 'aero'
 mv "$AERO_TMP" "$INSTALL_DIR/aero"
@@ -180,15 +234,5 @@ elif [ -n "$BASH_VERSION" ] && [ -f "$HOME/.bashrc" ]; then
     . "$HOME/.bashrc" 2>/dev/null || true
 fi
 
-echo "Reloaded shell configs where possible."
-echo
-echo "---------------------------------------------"
-echo "To use the 'aero' command:"
-echo "1. Open a NEW terminal window/tab, OR"
-echo "2. Run one of these commands:"
-echo "   - Bash: source ~/.bashrc"
-echo "   - Zsh:  source ~/.zshrc" 
-echo "   - Fish: source ~/.config/fish/config.fish"
-echo "Then you can type: aero"
-echo "---------------------------------------------"
-echo
+echo "Reloaded shell configuration. Please open a new terminal or run 'source ~/.bashrc' (or ~/.zshrc) to use 'aero' directly."
+echo "Installation Complete!"
