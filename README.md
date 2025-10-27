@@ -157,5 +157,5 @@ MIT License
 
 ## Credits
 
-Aero Installer and Shell by Holden  
+Aero Installer and Shell by Nebuff  
 See [https://github.com/nebuff/aero](https://github.com/nebuff/aero) for updates.
