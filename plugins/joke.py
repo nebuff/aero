@@ -1,12 +1,9 @@
-__PLUGIN_VERSION__ = "1.0.4"
+__PLUGIN_VERSION__ = "1.0.5"
 
 import random
 
-# ANSI color codes
-COLOR_RESET = "\033[0m"
-COLOR_GREEN = "\033[32m"
-COLOR_YELLOW = "\033[33m"
-COLOR_CYAN = "\033[36m"
+# Import core library functions
+import config_manager as cm
 
 # Collection of programming jokes
 JOKES = [
@@ -30,16 +27,16 @@ JOKES = [
 def joke_cmd(args):
     """Tell a random programming joke"""
     if args and args[0] == "help":
-        print(f"{COLOR_YELLOW}Joke Command Help:{COLOR_RESET}")
-        print(f"  {COLOR_GREEN}joke{COLOR_RESET}        - Tell a random programming joke")
-        print(f"  {COLOR_GREEN}joke help{COLOR_RESET}   - Show this help")
+        cm.print_colored("Joke Command Help:", "subheader")
+        print(f"  {cm.colorize('joke', 'success'):<10} - Tell a random programming joke")
+        print(f"  {cm.colorize('joke help', 'success'):<10} - Show this help")
         return
-    
+
     # Pick a random joke
     joke = random.choice(JOKES)
-    print(f"{COLOR_CYAN}Here's a joke for you:{COLOR_RESET}")
-    print(f"{COLOR_YELLOW}{joke}{COLOR_RESET}")
+    cm.print_colored("Here's a joke for you:", "data_primary")
+    cm.print_colored(joke, "data_value")
 
-def register(commands):
-    """Register the joke command with Aero"""
-    commands['joke'] = joke_cmd
+def register_plugin_commands(COMMANDS):
+    """Registers the 'joke' command."""
+    COMMANDS["joke"] = joke_cmd
