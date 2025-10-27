@@ -1,4 +1,6 @@
 ### Btw this readme is old, The jist is run the install.sh and boom, run help for help
+USE THIS ONE LINER BECAUSE ITS COOL to install
+curl -fsSL https://raw.githubusercontent.com/nebuff/aero/main/install.sh | bash
 # Aero
 
 Aero is a simple, extensible, and colorful command shell for macOS and Linux, written in Python.  
