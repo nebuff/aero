@@ -1,3 +1,4 @@
+### Btw this readme is old, The jist is run the install.sh and boom, run help for help
 # Aero
 
 Aero is a simple, extensible, and colorful command shell for macOS and Linux, written in Python.  
