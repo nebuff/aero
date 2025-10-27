@@ -1,6 +1,9 @@
-__PLUGIN_VERSION__ = "1.0.0"
+__PLUGIN_VERSION__ = "1.0.1"
 
 import random
+
+# Import core library functions
+import config_manager as cm
 
 FORTUNES = [
     "You will write bug-free code today!",
@@ -14,7 +17,9 @@ FORTUNES = [
 ]
 
 def fortune_cmd(args):
-    print(random.choice(FORTUNES))
+    """Prints a random fortune cookie message."""
+    cm.print_colored(random.choice(FORTUNES), "data_primary")
 
-def register(COMMANDS):
+def register_plugin_commands(COMMANDS):
+    """Registers the 'fortune' command."""
     COMMANDS["fortune"] = fortune_cmd
