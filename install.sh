@@ -20,7 +20,7 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 clear
-echo -e "${CYAN}Aero Installer <-> By Nebuff (Simplified Subdir Install)${NC}"
+echo -e "${CYAN}Aero Installer <-> By Nebuff${NC}"
 echo
 
 # --- Helper Functions ---
@@ -31,7 +31,9 @@ add_to_shell_config() {
     local shell_type="$2"
     local path_to_add="$INSTALL_DIR"
 
-    if ! grep -q "export PATH=\"$path_to_add:\$PATH\"" "$config_file" 2>/dev/null; then
+    if [ -f "$config_file" ] && grep -q "export PATH=\"$path_to_add:\$PATH\"" "$config_file" 2>/dev/null; then
+        echo -e "${YELLOW}PATH already set in $config_file.${NC}"
+    else
         echo -e "${YELLOW}Adding PATH to $config_file...${NC}"
         if [ "$shell_type" = "fish" ]; then
             cat <<-EOF >> "$config_file"
@@ -45,8 +47,6 @@ EOF
 export PATH="$path_to_add:\$PATH"
 EOF
         fi
-    else
-        echo -e "${YELLOW}PATH already set in $config_file.${NC}"
     fi
 }
 
@@ -67,48 +67,48 @@ install_aero() {
     fi
 
     # Clean up previous temporary directory
-    if [ -d "$TEMP_DIR" ]; then
-        rm -rf "$TEMP_DIR"
-    fi
+    rm -rf "$TEMP_DIR"
     mkdir -p "$INSTALL_DIR"
-    mkdir -p "$TEMP_DIR"
 
-    echo -e "${YELLOW}Cloning specific commit ($COMMIT_HASH) into temporary directory...${NC}"
+    echo -e "${YELLOW}Cloning repository and checking out specific commit ($COMMIT_HASH)...${NC}"
 
-    # Use 'git clone' with --depth 1 and a filter for the specific directory
-    # This keeps the history minimal and only fetches the files we need.
-    if ! git clone --depth 1 --filter=blob:none --sparse --branch "$COMMIT_HASH" "$REPO_URL" "$TEMP_DIR"; then
+    # 1. Clone the repository minimally
+    if ! git clone --depth 1 "$REPO_URL" "$TEMP_DIR"; then
         echo -e "${RED}Error: Failed to clone repository.${NC}"
         rm -rf "$TEMP_DIR"
         exit 1
     fi
     
-    # Configure sparse checkout to pull only the 'aero' subdirectory
-    cd "$TEMP_DIR"
-    git sparse-checkout set "$SUB_DIR"
+    # 2. Change into the temp directory and check out the specific commit
+    cd "$TEMP_DIR" || exit 1
+    if ! git checkout "$COMMIT_HASH" -- "$SUB_DIR"; then
+        echo -e "${RED}CRITICAL ERROR: Failed to checkout directory '$SUB_DIR' from commit.${NC}"
+        cd ~
+        rm -rf "$TEMP_DIR"
+        exit 1
+    fi
     
-    # Pull the files for the specified directory
-    git checkout "$COMMIT_HASH" 2>/dev/null
-
     AERO_SOURCE_DIR="$TEMP_DIR/$SUB_DIR"
     
-    # Check if the subdirectory exists
+    # 3. Check if the subdirectory exists after checkout
     if [ ! -d "$AERO_SOURCE_DIR" ]; then
-        echo -e "${RED}CRITICAL ERROR: Subdirectory '$SUB_DIR' not found in the cloned repository. Please verify the repository structure.${NC}"
+        echo -e "${RED}CRITICAL ERROR: Subdirectory '$SUB_DIR' not found after checkout. Please verify the structure.${NC}"
+        cd ~
         rm -rf "$TEMP_DIR"
         exit 1
     fi
 
-    # Move contents of the subdirectory to the final install directory
+    # 4. Move contents of the subdirectory to the final install directory
     echo -e "${YELLOW}Moving contents from $AERO_SOURCE_DIR to $INSTALL_DIR...${NC}"
     # Move non-hidden files
     mv "$AERO_SOURCE_DIR"/* "$INSTALL_DIR"/
     # Move hidden files (like .gitignore) - suppress error if none exist
     mv "$AERO_SOURCE_DIR"/.* "$INSTALL_DIR"/ 2>/dev/null || true 
     
-    # Set executable permissions on the main aero file
+    # 5. Set executable permissions
     if [ ! -f "$INSTALL_DIR/aero" ]; then
         echo -e "${RED}CRITICAL ERROR: Main executable 'aero' not found in final directory.${NC}"
+        cd ~
         rm -rf "$TEMP_DIR"
         exit 1
     fi
@@ -120,7 +120,7 @@ install_aero() {
     ls -l "$INSTALL_DIR"
     echo -e "${CYAN}--------------------------------${NC}"
 
-    # Clean up temp directory
+    # 6. Clean up temp directory
     cd ~
     rm -rf "$TEMP_DIR"
     
@@ -144,7 +144,7 @@ done
 # Handle Fish shell configuration
 if command -v fish >/dev/null 2>&1; then
     FISH_CONFIG="$HOME/.config/fish/config.fish"
-    mkdir -p "$(dirname "$FISH_CONFIG")"
+    mkdir -p "$(dirname "$FISH_CONFIG")" 2>/dev/null || true
     add_to_shell_config "$FISH_CONFIG" "fish"
 fi
 
