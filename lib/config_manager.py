@@ -2,6 +2,7 @@ import json
 import os
 import datetime
 import socket
+import sys  # <-- FIX 1: Added missing import
 
 # Attempt to import constants from the new location
 try:
@@ -45,19 +46,34 @@ def load_config():
     global CONFIG
     global COLOR_MAP
     
-    if not os.path.exists(CONFIG_PATH):
-        # Fallback to defaults if file is missing (should be created by initialize_aero)
-        from constants import DEFAULT_CONFIG # Import only when needed to avoid circular dep
-        CONFIG = DEFAULT_CONFIG.copy()
-        
+    # Import here to avoid circular dependencies
+    from constants import DEFAULT_CONFIG 
+
     try:
+        # Try to open and read the config file
         with open(CONFIG_PATH, 'r') as f:
-            CONFIG.update(json.load(f))
+            config_data = json.load(f)
+            # If json.load(f) returns None or {}, it's considered empty/invalid
+            if not config_data:
+                raise json.JSONDecodeError("Config file is empty.", "", 0)
+        CONFIG.update(config_data)
+        
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        # --- FIX 2: Handle missing, empty, or corrupt config file ---
+        print(f"Warning: config.json not found or is corrupt/empty ({e}). Loading defaults.", file=sys.stderr)
+        CONFIG = DEFAULT_CONFIG.copy()
+        try:
+            # Save the default config back to the file to fix it
+            with open(CONFIG_PATH, 'w') as f:
+                json.dump(CONFIG, f, indent=2)
+            print("Created default config.json.", file=sys.stderr)
+        except Exception as save_e:
+            print(f"Error: Could not write default config: {save_e}", file=sys.stderr)
+            
     except Exception as e:
+        # Catchall for other unexpected errors
         print(f"Warning: Could not load config.json: {e}", file=sys.stderr)
-        # If loading fails, ensure we still have a basic config
-        if not CONFIG:
-            from constants import DEFAULT_CONFIG
+        if not CONFIG: # Ensure config is not empty
             CONFIG = DEFAULT_CONFIG.copy()
 
     # Update color map if color config is present
@@ -76,19 +92,25 @@ def load_config():
     try:
         from constants import __AERO_VERSION__
         CONFIG["aero_version"] = __AERO_VERSION__
-    except NameError:
+    except ImportError:
         # Fallback if __AERO_VERSION__ is not defined
         CONFIG["aero_version"] = "unknown"
 
     return CONFIG
 
 
-def get_config(key, default=None):
-    """Retrieves a configuration value."""
+def get_config(key=None, default=None):
+    """
+    Retrieves a specific configuration value by key,
+    or returns the entire config dictionary if no key is provided.
+    """
     # Ensure config is loaded if this is the first call
     if not CONFIG:
         load_config()
-    return CONFIG.get(key, default)
+    
+    if key:
+        return CONFIG.get(key, default)
+    return CONFIG
 
 
 # --- Utility Functions ---
@@ -117,42 +139,24 @@ def format_prompt(template):
     username = CONFIG.get("username", "user")
     time_str = datetime.datetime.now().strftime(CONFIG.get("time_format", "%H:%M:%S"))
     hostname = socket.gethostname().split('.')[0]
-
-    # --- Start Fix: Handle PermissionError for os.getcwd() on systems like macOS TCC ---
-    home_dir = os.path.expanduser("~")
-    current_path_name = "/" # Default for short_pwd
-    full_path = "/"
     
+    # --- Robust Path Handling ---
     try:
-        # Get the current working directory. This is the line that can fail.
-        full_path = os.getcwd()
-        
-        # Get the last component of the path for 'short_pwd' (original logic)
-        current_path_name = os.path.basename(full_path) or "/"
-        
-        # If the full path is the home directory, show ~
-        if full_path == home_dir:
-            current_path_name = "~"
+        full_pwd = os.getcwd()
+        # Get the last component of the path for 'short_pwd'
+        short_pwd = os.path.basename(full_pwd) or "/"
+        # Replace home dir with ~
+        home_dir = os.path.expanduser("~")
+        if full_pwd.startswith(home_dir):
+            full_pwd = "~" + full_pwd[len(home_dir):]
+            if full_pwd == "~":
+                 short_pwd = "~" # Special case for home
             
-    except PermissionError:
-        # Graceful fallback if os.getcwd() fails due to macOS TCC/PermissionError
-        print_colored(
-            "Warning: Operation not permitted. Check terminal permissions (macOS TCC). Prompt path will show as '[Denied]'.", 
-            "warning"
-        )
-        current_path_name = "[Denied]"
-        full_path = "[Denied]"
     except Exception as e:
-        # General error handling
-        print_colored(f"Warning: Failed to get CWD: {e}", "warning")
-        current_path_name = "[Error]"
-        full_path = "[Error]"
-
-    # Map the results to the expected variables
-    full_pwd = full_path
-    short_pwd = current_path_name
-    # --- End Fix ---
-
+        print_colored(f"Warning: Could not get current directory: {e}", "error")
+        full_pwd = "[error_pwd]"
+        short_pwd = "[error_pwd]"
+    
     # 2. Prepare color replacement map
     # This uses a simple regex-like replacement for tags like <color>text</color>
     
@@ -171,8 +175,30 @@ def format_prompt(template):
         time_str=time_str,
         hostname=hostname,
         full_pwd=full_pwd,
-        # Get the last component of the path for 'short_pwd'
         short_pwd=short_pwd,
     )
     
     return formatted_prompt
+
+def get_color(key):
+    """Get a raw color code by key."""
+    return COLOR_MAP.get(key, "")
+
+def get_color_palette():
+    """Get all available color categories for plugins."""
+    # This can be expanded with more categories later
+    return {
+        "core": ["success", "warning", "error", "info", "header", "subheader", "dim", "reset"],
+        "data": ["data_primary", "data_secondary", "data_value"],
+        "prompt": ["prompt_text"]
+    }
+
+def save_config():
+    """Saves the current CONFIG cache back to config.json."""
+    global CONFIG
+    try:
+        with open(CONFIG_PATH, "w") as f:
+            json.dump(CONFIG, f, indent=2)
+    except Exception as e:
+        print_colored(f"Failed to save config: {e}", "error")
+
