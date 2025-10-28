@@ -1,6 +1,6 @@
 {
   "color": true,
-  "username": "nebuff",
+  "username": "aerouser",
   "time_format": "24",
   "active_theme": "ocean_dark",
   "prompt_template": "<data_primary>{username}</data_primary>@<data_value>{hostname}</data_value> <info>{short_pwd}</info> $ ",
