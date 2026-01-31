@@ -81,6 +81,10 @@ install_aero() {
     
     # 2. Change into the temp directory and check out the specific commit
     cd "$TEMP_DIR" || exit 1
+
+    # Ensure the commit is available locally
+    git fetch origin "$COMMIT_HASH"
+
     if ! git checkout "$COMMIT_HASH" -- "$SUB_DIR"; then
         echo -e "${RED}CRITICAL ERROR: Failed to checkout directory '$SUB_DIR' from commit.${NC}"
         cd ~
